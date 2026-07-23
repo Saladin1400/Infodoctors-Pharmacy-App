@@ -1,0 +1,141 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 1. Central Catch-All Deny Block
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Reusable Security Helpers (Pillars 2, 3, 5, 8)
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(patientId) {
+      return isSignedIn() && (request.auth.uid == patientId || request.auth.token.email == patientId);
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Schema Validation Blueprint Helpers
+    function isValidPatient(data) {
+      return data.nationalId is string && data.nationalId.size() <= 64
+        && data.fullName is string && data.fullName.size() <= 256
+        && data.email is string && data.email.size() <= 128;
+    }
+
+    function isValidPharmacist(data) {
+      return data.fullName is string && data.fullName.size() <= 256
+        && data.licenseNumber is string && data.licenseNumber.size() <= 64;
+    }
+
+    function isValidConsultation(data) {
+      return data.id is string && data.id.size() <= 64
+        && data.patientId is string && data.patientId.size() <= 64;
+    }
+
+    function isValidRevision(data) {
+      return data.id is string && data.id.size() <= 64
+        && data.patientId is string && data.patientId.size() <= 64;
+    }
+
+    function isValidPlan(data) {
+      return data.id is string && data.id.size() <= 64
+        && data.patientId is string && data.patientId.size() <= 64;
+    }
+
+    function isValidReport(data) {
+      return data.id is string && data.id.size() <= 64
+        && data.serviceId is string && data.serviceId.size() <= 64
+        && data.patientId is string && data.patientId.size() <= 64;
+    }
+
+    function isValidNotification(data) {
+      return data.id is string && data.id.size() <= 64
+        && data.recipient is string && data.title is string && data.body is string;
+    }
+
+    function isValidAuditLog(data) {
+      return data.id is string && data.id.size() <= 64
+        && data.action is string;
+    }
+
+    function isValidChatMessage(data) {
+      return data.roomId is string && data.sender is string && data.text is string;
+    }
+
+    // Database Endpoints & Rules matches
+    match /patients/{patientId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && isValidId(patientId) && isValidPatient(incoming());
+      allow delete: if false; // Healthcare archives are immutable
+    }
+
+    match /pharmacists/{licenseNumber} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && isValidId(licenseNumber) && isValidPharmacist(incoming());
+      allow delete: if false;
+    }
+
+    match /consultations/{consultId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(consultId) && isValidConsultation(incoming());
+      allow update: if isSignedIn() && isValidId(consultId) && isValidConsultation(incoming()) 
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'reportId', 'googleMeetUrl', 'paymentStatus']);
+      allow delete: if false;
+    }
+
+    match /revisions/{revisionId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(revisionId) && isValidRevision(incoming());
+      allow update: if isSignedIn() && isValidId(revisionId) && isValidRevision(incoming()) 
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'reportId', 'googleMeetUrl', 'paymentStatus']);
+      allow delete: if false;
+    }
+
+    match /plans/{planId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(planId) && isValidPlan(incoming());
+      allow update: if isSignedIn() && isValidId(planId) && isValidPlan(incoming()) 
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'timetable', 'googleMeetUrl', 'paymentStatus']);
+      allow delete: if false;
+    }
+
+    match /reports/{reportId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(reportId) && isValidReport(incoming());
+      allow update, delete: if false; // Signed clinical reviews are unalterable
+    }
+
+    match /notifications/{notifId} {
+      allow read: if isSignedIn() && (resource.data.recipient == 'all' || resource.data.recipient == 'pharmacist' || resource.data.patientId == request.auth.uid);
+      allow create: if isSignedIn() && isValidId(notifId) && isValidNotification(incoming());
+      allow update: if isSignedIn() && isValidId(notifId) && isValidNotification(incoming()) 
+        && incoming().diff(existing()).affectedKeys().hasOnly(['read']);
+      allow delete: if isSignedIn();
+    }
+
+    match /auditLogs/{logId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(logId) && isValidAuditLog(incoming());
+      allow update, delete: if false; // Append-only immutable ledger trail
+    }
+
+    match /chats/{chatId}/messages/{msgId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(chatId) && isValidId(msgId) && isValidChatMessage(incoming());
+      allow update, delete: if false;
+    }
+  }
+}

@@ -1,0 +1,174 @@
+{
+  "entities": {
+    "PatientProfile": {
+      "title": "PatientProfile",
+      "description": "Complete healthcare index profile of the patient containing diagnostics, vitals and medical parameters.",
+      "type": "object",
+      "properties": {
+        "nationalId": { "type": "string", "description": "National ID" },
+        "fullName": { "type": "string", "description": "Full Arabic or English Name" },
+        "email": { "type": "string", "description": "Email address" },
+        "phonePrimary": { "type": "string", "description": "Primary mobile number" },
+        "dob": { "type": "string", "description": "Date of birth" },
+        "gender": { "type": "string", "enum": ["Male", "Female"], "description": "Gender" },
+        "bloodGroup": { "type": "string", "description": "Blood type" },
+        "height": { "type": "number", "description": "Height in cm" },
+        "weight": { "type": "number", "description": "Weight in kg" }
+      },
+      "required": ["nationalId", "fullName", "email", "phonePrimary"]
+    },
+    "PharmacistProfile": {
+      "title": "PharmacistProfile",
+      "description": "Clinical Pharmacist Profile verifying professional credentials and specialty.",
+      "type": "object",
+      "properties": {
+        "fullName": { "type": "string" },
+        "licenseNumber": { "type": "string" },
+        "specialty": { "type": "string" },
+        "degree": { "type": "string" }
+      },
+      "required": ["fullName", "licenseNumber", "specialty"]
+    },
+    "OtcConsultation": {
+      "title": "OtcConsultation",
+      "description": "Clinical OTC consultation request session.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "patientId": { "type": "string" },
+        "patientName": { "type": "string" },
+        "specialty": { "type": "string" },
+        "complaintSummary": { "type": "string" },
+        "appointmentTime": { "type": "string" },
+        "paymentStatus": { "type": "string", "enum": ["Pending", "Paid"] },
+        "status": { "type": "string", "enum": ["In-Waiting", "Ongoing", "Completed"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "patientId", "status"]
+    },
+    "PrescriptionRevision": {
+      "title": "PrescriptionRevision",
+      "description": "Prescription clinical revision request session.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "patientId": { "type": "string" },
+        "patientName": { "type": "string" },
+        "prescriptionImageUrl": { "type": "string" },
+        "appointmentTime": { "type": "string" },
+        "paymentStatus": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "patientId", "status"]
+    },
+    "MedicationManagementPlan": {
+      "title": "MedicationManagementPlan",
+      "description": "Long term therapeutic medication schedule management plan.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "patientId": { "type": "string" },
+        "patientName": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "patientId", "status"]
+    },
+    "ClinicalReport": {
+      "title": "ClinicalReport",
+      "description": "Official diagnostic clinical review signed digitally by licensed clinical pharmacist.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "serviceId": { "type": "string" },
+        "serviceType": { "type": "string" },
+        "patientId": { "type": "string" },
+        "pharmacistName": { "type": "string" },
+        "edaComplianceVerified": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "serviceId", "patientId"]
+    },
+    "AppNotification": {
+      "title": "AppNotification",
+      "description": "System-wide notification, alert message or alarm record.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "recipient": { "type": "string" },
+        "patientId": { "type": "string" },
+        "title": { "type": "string" },
+        "body": { "type": "string" },
+        "type": { "type": "string" },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "recipient", "title", "body"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Central ledger trail documenting system events for validation compliance.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "action": { "type": "string" },
+        "pharmacist": { "type": "string" },
+        "serviceId": { "type": "string" },
+        "details": { "type": "string" }
+      },
+      "required": ["id", "timestamp", "action"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Secure chat line item recorded synchronously.",
+      "type": "object",
+      "properties": {
+        "roomId": { "type": "string" },
+        "sender": { "type": "string" },
+        "senderName": { "type": "string" },
+        "text": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["roomId", "sender", "text", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/patients/{patientId}": {
+      "schema": "PatientProfile",
+      "description": "Primary healthcare record folder directory."
+    },
+    "/pharmacists/{licenseNumber}": {
+      "schema": "PharmacistProfile",
+      "description": "Syllabus profile dictionary."
+    },
+    "/consultations/{consultId}": {
+      "schema": "OtcConsultation",
+      "description": "Requested OTC clinical consult files."
+    },
+    "/revisions/{revisionId}": {
+      "schema": "PrescriptionRevision",
+      "description": "Clinical revision of prescriptions."
+    },
+    "/plans/{planId}": {
+      "schema": "MedicationManagementPlan",
+      "description": "Patient prescription timetable scheduler folder."
+    },
+    "/reports/{reportId}": {
+      "schema": "ClinicalReport",
+      "description": "Medical summary files signed on delivery."
+    },
+    "/notifications/{notifId}": {
+      "schema": "AppNotification",
+      "description": "Alarms and notifications for patients and clinical consultants."
+    },
+    "/auditLogs/{logId}": {
+      "schema": "AuditLog",
+      "description": "Unbreakable compliance audit logging trail."
+    },
+    "/chats/{chatId}/messages/{msgId}": {
+      "schema": "ChatMessage",
+      "description": "Encrypted secure consultation text chat logs."
+    }
+  }
+}
