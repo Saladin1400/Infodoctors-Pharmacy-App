@@ -336,7 +336,7 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="name@mail.eg"
-                      className="w-full pl-3 pr-9 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold outline-none focus:border-teal-500 focus:bg-white text-right font-sans"
+                      className="w-full pl-3 pr-9 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold outline-none focus:border-teal-500 focus:bg-white text-right font-sans text-slate-900 placeholder:text-slate-400"
                     />
                     <Mail className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   </div>
@@ -351,7 +351,7 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••"
-                      className="w-full pl-3 pr-9 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold outline-none focus:border-teal-500 focus:bg-white text-right font-sans"
+                      className="w-full pl-3 pr-9 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold outline-none focus:border-teal-500 focus:bg-white text-right font-sans text-slate-900 placeholder:text-slate-400"
                     />
                     <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   </div>

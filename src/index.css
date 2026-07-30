@@ -33,3 +33,25 @@ body {
   color: #1e293b;
   overflow-x: hidden;
 }
+
+/* Enforce high-contrast text visibility for input fields */
+input, select, textarea {
+  color: #0f172a !important;
+}
+
+input::placeholder, textarea::placeholder {
+  color: #64748b !important;
+}
+
+/* Dark mode / dark background container overrides */
+.bg-slate-900 input, .bg-slate-950 input, .bg-slate-900 textarea, .bg-slate-950 textarea,
+.bg-slate-900 select, .bg-slate-950 select,
+input.bg-slate-900, input.bg-slate-950, textarea.bg-slate-900, textarea.bg-slate-950,
+select.bg-slate-900, select.bg-slate-950, select.bg-indigo-950, input.bg-indigo-950 {
+  color: #f8fafc !important;
+}
+
+input.bg-slate-900::placeholder, input.bg-slate-950::placeholder,
+textarea.bg-slate-900::placeholder, textarea.bg-slate-950::placeholder {
+  color: #94a3b8 !important;
+}
