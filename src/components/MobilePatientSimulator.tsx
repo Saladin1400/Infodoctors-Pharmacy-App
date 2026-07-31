@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { motion } from "motion/react";
 import { jsPDF } from "jspdf";
 import { 
@@ -13,10 +13,16 @@ import {
   HeartPulse, Activity, FileText, AlertTriangle, FileCheck, ShieldAlert,
   Mic, MicOff, VideoOff, PhoneOff, MessageSquare, CreditCard, Copy
 } from "lucide-react";
-import { PatientProfile, ApprovedSpecialtiesList, ApprovedSpecialty, ClinicalReport, AppNotification, AlcoholLevel, PhysicalActivity, CurrentMedication } from "../types";
+import { PatientProfile, ApprovedSpecialtiesList, ApprovedSpecialty, ClinicalReport, AppNotification, AlcoholLevel, PhysicalActivity, CurrentMedication, PharmacistProfile, PharmacistReview } from "../types";
 import AuthInterface from "./AuthInterface";
 import MedicationInsights from "./MedicationInsights";
-import { Fingerprint, Lock } from "lucide-react";
+import PatientPortalSummaryStats from "./PatientPortalSummaryStats";
+import MedicationScheduleAlerts from "./MedicationScheduleAlerts";
+import RecentNotifications from "./RecentNotifications";
+import ProfilePhotoUploader from "./ProfilePhotoUploader";
+import PharmacistProfileModal from "./PharmacistProfileModal";
+import PharmacistsDirectory from "./PharmacistsDirectory";
+import { Fingerprint, Lock, UserCheck } from "lucide-react";
 import { registerPushNotifications, triggerLocalNativeNotification } from "../lib/pushNotifications";
 
 const containerVariants = {
@@ -64,8 +70,71 @@ export default function MobilePatientSimulator({
   onLogout
 }: MobilePatientSimulatorProps) {
   // Navigation states inside simulated phone app
-  // Screens: 'dashboard' | 'profile' | 'otc-book' | 'rev-book' | 'pillbox' | 'scanner' | 'payment' | 'videocall' | 'overview' | 'auth' | 'insights'
-  const [screen, setScreen] = useState<'dashboard' | 'profile' | 'otc-book' | 'rev-book' | 'pillbox' | 'scanner' | 'payment' | 'videocall' | 'overview' | 'auth' | 'insights'>('dashboard');
+  // Screens: 'dashboard' | 'profile' | 'otc-book' | 'rev-book' | 'pillbox' | 'scanner' | 'payment' | 'videocall' | 'overview' | 'auth' | 'insights' | 'pharmacists'
+  const [screen, setScreen] = useState<'dashboard' | 'profile' | 'otc-book' | 'rev-book' | 'pillbox' | 'scanner' | 'payment' | 'videocall' | 'overview' | 'auth' | 'insights' | 'pharmacists'>('dashboard');
+  
+  // Pharmacist Profile Modal state for patient inspection
+  const [selectedPharmacistProfile, setSelectedPharmacistProfile] = useState<PharmacistProfile | null>(null);
+  const [isPharmacistModalOpen, setIsPharmacistModalOpen] = useState<boolean>(false);
+
+  const handleOpenPharmacistProfile = async (licenseOrProfile: string | PharmacistProfile) => {
+    if (typeof licenseOrProfile === 'object' && licenseOrProfile !== null) {
+      setSelectedPharmacistProfile(licenseOrProfile);
+      setIsPharmacistModalOpen(true);
+      return;
+    }
+
+    const lic = licenseOrProfile || "LIC-12345";
+    try {
+      const res = await fetch(`/api/v1/pharmacists/profile/${lic}`);
+      if (res.ok) {
+        const data = await res.json();
+        setSelectedPharmacistProfile(data);
+      } else {
+        setSelectedPharmacistProfile({
+          fullName: "د. أميرة أحمد الخطيب",
+          licenseNumber: lic,
+          specialty: "OB-GYN",
+          degree: "Specialist",
+          country: "مصر",
+          governorate: "القاهرة",
+          city: "القاهرة الجديدة",
+          photoUrl: "https://images.unsplash.com/photo-1594824813566-88855ce78907?q=80&w=256&auto=format&fit=crop",
+          bio: "أخصائية الصيدلة الإكلينيكية للنساء والتوليد ومراجعة السلامة الدوائية.",
+          rating: 4.9,
+          reviewCount: 42
+        });
+      }
+    } catch (e) {
+      console.warn("Failed fetching pharmacist profile:", e);
+      setSelectedPharmacistProfile({
+        fullName: "د. أميرة أحمد الخطيب",
+        licenseNumber: lic,
+        specialty: "OB-GYN",
+        degree: "Specialist",
+        country: "مصر",
+        governorate: "القاهرة",
+        city: "القاهرة الجديدة",
+        photoUrl: "https://images.unsplash.com/photo-1594824813566-88855ce78907?q=80&w=256&auto=format&fit=crop",
+        bio: "أخصائية الصيدلة الإكلينيكية للنساء والتوليد ومراجعة السلامة الدوائية.",
+        rating: 4.9,
+        reviewCount: 42
+      });
+    }
+    setIsPharmacistModalOpen(true);
+  };
+
+  const handleAddPharmacistReview = async (licenseNumber: string, reviewData: any) => {
+    try {
+      await fetch(`/api/v1/pharmacists/${licenseNumber}/reviews`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(reviewData)
+      });
+    } catch (e) {
+      console.warn("Failed posting pharmacist review:", e);
+    }
+  };
   
   // Dependents List state (managed locally and saved to primary DB if requested)
   const [dependents, setDependents] = useState<Array<{ name: string; relation: string; nationalId: string }>>([
@@ -393,20 +462,80 @@ export default function MobilePatientSimulator({
   const [selectedReport, setSelectedReport] = useState<ClinicalReport | null>(null);
   const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
 
-  // Simulated push notifications states
-  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  // Simulated push notifications & recent pharmacy alerts states
+  const [notifications, setNotifications] = useState<AppNotification[]>([
+    {
+      id: "notif-001",
+      recipient: "patient",
+      title: "💊 تنبيه الجرعة: كونكور 5 ملجم",
+      body: "حان موعد الجرعة الصباحية (قرص واحد بعد الإفطار). يرجى الالتزام بالموعد.",
+      type: "PillReminder",
+      read: false,
+      createdAt: new Date().toISOString(),
+      metadata: { brandName: "Concor 5mg", timeOfDay: "08:00 AM" }
+    },
+    {
+      id: "notif-002",
+      recipient: "patient",
+      title: "📋 تم إصدار تقرير فحص الروشتة",
+      body: "تم اعتماد الروشتة وتوثيق الخطة العلاجية بواسطة الصيدلي الإكلينيكي المختص.",
+      type: "ReportSigned",
+      read: false,
+      createdAt: new Date(Date.now() - 3600000).toISOString(),
+      metadata: { serviceId: "REV-2026-01" }
+    },
+    {
+      id: "notif-003",
+      recipient: "patient",
+      title: "⚠️ تنبيه تعارض دوائي غذائي",
+      body: "تجنب تناول عصير الجريب فروت مع دواء الضغط لتفادي زيادة امتصاص المادة الفعالة.",
+      type: "General",
+      read: true,
+      createdAt: new Date(Date.now() - 86400000).toISOString()
+    }
+  ]);
   const [showNotifCenter, setShowNotifCenter] = useState(false);
+  const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const [activePush, setActivePush] = useState<AppNotification | null>(null);
   const shownPushIdsRef = useRef<Set<string>>(new Set());
 
   // Booked Services lists
   const [bookedServices, setBookedServices] = useState<{otc: any[], revisions: any[], plan: any[]}>({otc: [], revisions: [], plan: []});
 
-  const activePatient = patients.find(p => p.nationalId === activePatientId) || patients[0];
+  // Profile Photo state & uploader modal state
+  const [isPhotoUploaderOpen, setIsPhotoUploaderOpen] = useState(false);
+  const [profilePhotos, setProfilePhotos] = useState<Record<string, string>>(() => {
+    try {
+      const saved = localStorage.getItem("patient_profile_photos");
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      return {};
+    }
+  });
+
+  const baseActivePatient = patients.find(p => p.nationalId === activePatientId) || patients[0];
+  const activePatient = useMemo(() => {
+    if (!baseActivePatient) return null;
+    return {
+      ...baseActivePatient,
+      profilePhotoUrl: profilePhotos[baseActivePatient.nationalId] || baseActivePatient.profilePhotoUrl
+    };
+  }, [baseActivePatient, profilePhotos]);
+
+  const handleSaveProfilePhoto = (photoDataUrl: string) => {
+    if (!baseActivePatient) return;
+    const updated = { ...profilePhotos, [baseActivePatient.nationalId]: photoDataUrl };
+    setProfilePhotos(updated);
+    try {
+      localStorage.setItem("patient_profile_photos", JSON.stringify(updated));
+    } catch (e) {
+      console.warn("Error saving photo to localStorage:", e);
+    }
+  };
 
   // Load chat history on Joining videocall
   useEffect(() => {
-    if (screen === 'videocall' && activePatient) {
+    if (screen === 'videocall' && activePatient?.nationalId) {
       const fetchHistory = async () => {
         try {
           const res = await fetch(`/api/v1/chat/${activePatient.nationalId}`);
@@ -420,19 +549,19 @@ export default function MobilePatientSimulator({
       };
       fetchHistory();
     } else {
-      setChatMessages([]);
+      setChatMessages(prev => (prev.length === 0 ? prev : []));
     }
-  }, [screen, activePatient]);
+  }, [screen, activePatient?.nationalId]);
 
-  const patientOtc = bookedServices.otc?.filter(c => c.patientId === activePatient?.nationalId) || [];
-  const patientRevisions = bookedServices.revisions?.filter(c => c.patientId === activePatient?.nationalId) || [];
-  const patientMmp = bookedServices.plan?.filter(c => c.patientId === activePatient?.nationalId) || [];
+  const patientOtc = useMemo(() => bookedServices.otc?.filter(c => c.patientId === activePatient?.nationalId) || [], [bookedServices.otc, activePatient?.nationalId]);
+  const patientRevisions = useMemo(() => bookedServices.revisions?.filter(c => c.patientId === activePatient?.nationalId) || [], [bookedServices.revisions, activePatient?.nationalId]);
+  const patientMmp = useMemo(() => bookedServices.plan?.filter(c => c.patientId === activePatient?.nationalId) || [], [bookedServices.plan, activePatient?.nationalId]);
 
-  const allPatientBookings = [
+  const allPatientBookings = useMemo(() => [
     ...patientOtc.map(c => ({...c, typeLabel: "استشارة OTC مباشرة", type: "OTC"})),
     ...patientRevisions.map(c => ({...c, typeLabel: "مراجعة روشتة DUR", type: "REV"})),
     ...patientMmp.map(c => ({...c, typeLabel: "إدارة الخطة MMP", type: "MMP"}))
-  ];
+  ], [patientOtc, patientRevisions, patientMmp]);
 
   // Browser Notification integration states
   const [notificationPermission, setNotificationPermission] = useState<string>(
@@ -477,7 +606,7 @@ export default function MobilePatientSimulator({
   };
 
   const [timetableTimeOverrides, setTimetableTimeOverrides] = useState<Record<string, string>>({});
-  const [triggeredTimetableKeys, setTriggeredTimetableKeys] = useState<Set<string>>(new Set());
+  const triggeredTimetableKeysRef = useRef<Set<string>>(new Set());
 
   const requestBrowserNotificationPermission = async () => {
     if (!("Notification" in window)) {
@@ -498,47 +627,125 @@ export default function MobilePatientSimulator({
     }
   };
 
-  const activePatientTimetableItems: any[] = [];
-  if (patientMmp && patientMmp.length > 0) {
-    patientMmp.forEach(plan => {
-      if (plan.timetable) {
-        plan.timetable.forEach((item: any) => {
-          activePatientTimetableItems.push({
-            ...item,
-            timeOfDay: timetableTimeOverrides[item.id] || item.timeOfDay,
-            planId: plan.id
+  const finalTimetableItems = useMemo(() => {
+    const activePatientTimetableItems: any[] = [];
+    if (patientMmp && patientMmp.length > 0) {
+      patientMmp.forEach(plan => {
+        if (plan.timetable) {
+          plan.timetable.forEach((item: any) => {
+            activePatientTimetableItems.push({
+              ...item,
+              timeOfDay: timetableTimeOverrides[item.id] || item.timeOfDay,
+              planId: plan.id
+            });
           });
-        });
-      }
-    });
-  }
-
-  const finalTimetableItems = activePatientTimetableItems.length > 0 
-    ? activePatientTimetableItems 
-    : [
-        {
-          id: "concor-morning",
-          activeIngredient: "Bisoprolol Hemifumarate",
-          brandName: "Concor CO 5mg",
-          dosageForm: "Tablet",
-          dose: "1 Tablet",
-          timeOfDay: timetableTimeOverrides["concor-morning"] || "08:00",
-          foodRelation: "Before Food",
-          specialInstructions: "صباحاً على الريق لتنظيم ضربات القلب وضغط الدم الشرياني",
-          notificationTriggered: false
-        },
-        {
-          id: "iron-afternoon",
-          activeIngredient: "Ferrous Gluconate + Folic Acid",
-          brandName: "Haematon Capsules",
-          dosageForm: "Capsule",
-          dose: "1 Capsule",
-          timeOfDay: timetableTimeOverrides["iron-afternoon"] || "16:00",
-          foodRelation: "After Food",
-          specialInstructions: "بعد الغداء بساعتين لضمان الامتصاص التام وتفادي تهييج المعدة",
-          notificationTriggered: false
         }
-      ];
+      });
+    }
+
+    if (activePatientTimetableItems.length > 0) {
+      return activePatientTimetableItems;
+    }
+
+    return [
+      {
+        id: "concor-morning",
+        activeIngredient: "Bisoprolol Hemifumarate",
+        brandName: "Concor CO 5mg",
+        dosageForm: "Tablet",
+        dose: "1 Tablet",
+        timeOfDay: timetableTimeOverrides["concor-morning"] || "08:00",
+        foodRelation: "Before Food",
+        specialInstructions: "صباحاً على الريق لتنظيم ضربات القلب وضغط الدم الشرياني",
+        notificationTriggered: false
+      },
+      {
+        id: "iron-afternoon",
+        activeIngredient: "Ferrous Gluconate + Folic Acid",
+        brandName: "Haematon Capsules",
+        dosageForm: "Capsule",
+        dose: "1 Capsule",
+        timeOfDay: timetableTimeOverrides["iron-afternoon"] || "16:00",
+        foodRelation: "After Food",
+        specialInstructions: "بعد الغداء بساعتين لضمان الامتصاص التام وتفادي تهييج المعدة",
+        notificationTriggered: false
+      }
+    ];
+  }, [patientMmp, timetableTimeOverrides]);
+
+  const [notifDropdownTab, setNotifDropdownTab] = useState<'reminders' | 'alerts'>('reminders');
+
+  // Compute upcoming medication reminders based on current prescriptions & timetable
+  const upcomingReminders = useMemo(() => {
+    const list: Array<{
+      id: string;
+      medName: string;
+      dose: string;
+      time: string;
+      foodRelation?: string;
+      instructions?: string;
+      isTaken: boolean;
+      source: 'timetable' | 'prescription';
+    }> = [];
+
+    finalTimetableItems.forEach(item => {
+      const id = item.id || `time-${item.brandName}`;
+      list.push({
+        id,
+        medName: item.brandName || item.activeIngredient,
+        dose: item.dose || "1 قرص",
+        time: item.timeOfDay || "08:00",
+        foodRelation: item.foodRelation === "Before Food" ? "قبل الأكل" : item.foodRelation === "After Food" ? "بعد الأكل" : item.foodRelation,
+        instructions: item.specialInstructions || "",
+        isTaken: pillStatus[id] === true,
+        source: 'timetable'
+      });
+    });
+
+    if (activePatient?.currentMedications) {
+      activePatient.currentMedications.forEach((med: any, idx: number) => {
+        const medName = med.brandName || med.activeIngredient || med.name || "دواء متناول";
+        const existsInTimetable = list.some(r => 
+          r.medName.toLowerCase().includes(medName.toLowerCase()) || 
+          medName.toLowerCase().includes(r.medName.toLowerCase())
+        );
+        if (!existsInTimetable) {
+          const id = `curr-med-${idx}-${medName}`;
+          const freqStr = typeof med.frequency === 'object' && med.frequency !== null
+            ? `${med.frequency.units || 1} ${med.frequency.type || ''} (${med.frequency.timeframe || ''})`.trim()
+            : String(med.frequency || "حسب الجدول");
+          const doseStr = med.concentration 
+            ? `${med.dosageForm || ''} ${med.concentration}`.trim() 
+            : (typeof med.dose === 'string' ? med.dose : "الجرعة المحددة");
+
+          list.push({
+            id,
+            medName,
+            dose: doseStr,
+            time: freqStr,
+            foodRelation: med.instructions || med.reason ? `التعليمات: ${med.instructions || med.reason}` : undefined,
+            instructions: freqStr,
+            isTaken: pillStatus[id] === true,
+            source: 'prescription'
+          });
+        }
+      });
+    }
+
+    return list;
+  }, [finalTimetableItems, activePatient?.currentMedications, pillStatus]);
+
+  const pendingRemindersCount = upcomingReminders.filter(r => !r.isTaken).length;
+  const unreadAlertsCount = notifications.filter(n => !n.read).length;
+  const totalAlertCount = pendingRemindersCount + unreadAlertsCount;
+
+  const handleTakeDoseInDropdown = (id: string, medName: string) => {
+    setPillStatus(prev => ({ ...prev, [id]: true }));
+    triggerLocalNativeNotification(
+      "💊 تم تأكيد تناول الجرعة",
+      `تم تسجيل تناول جرعة دواء (${medName}) بنجاح. نتمنى لك دوام الصحة والعافية!`
+    );
+  };
 
   const handleUpdateTimeOfDay = async (item: any, newTime: string) => {
     setTimetableTimeOverrides(prev => ({ ...prev, [item.id]: newTime }));
@@ -709,12 +916,8 @@ export default function MobilePatientSimulator({
 
         if (item.timeOfDay === currentHHMM) {
           const triggerKey = `${item.id}_${item.timeOfDay}_${todayStr}`;
-          if (!triggeredTimetableKeys.has(triggerKey)) {
-            setTriggeredTimetableKeys(prev => {
-              const next = new Set(prev);
-              next.add(triggerKey);
-              return next;
-            });
+          if (!triggeredTimetableKeysRef.current.has(triggerKey)) {
+            triggeredTimetableKeysRef.current.add(triggerKey);
 
             // 1. Audio double ping chime
             try {
@@ -798,7 +1001,7 @@ export default function MobilePatientSimulator({
     checkTimetableAlarms();
     const tickInterval = setInterval(checkTimetableAlarms, 8000);
     return () => clearInterval(tickInterval);
-  }, [finalTimetableItems, pillAlarms, triggeredTimetableKeys, activePatient]);
+  }, [finalTimetableItems, pillAlarms, activePatient?.nationalId]);
 
   const handleDownloadPDF = (report: ClinicalReport) => {
     if (!report) return;
@@ -1458,7 +1661,7 @@ export default function MobilePatientSimulator({
       if (retryCount < 3) {
         setTimeout(() => loadNotifications(retryCount + 1), 2000);
       } else {
-        console.error("Error loading patient notifications:", err);
+        console.warn("Patient notifications fetch warning:", err);
       }
     }
   };
@@ -1619,15 +1822,17 @@ export default function MobilePatientSimulator({
               {screen === 'payment' && "بوابة الدفع الإلكتروني"}
               {screen === 'videocall' && "العيادة الإلكترونية المباشرة"}
               {screen === 'auth' && "حساب المحاكاة الآمن (JWT)"}
+              {screen === 'pharmacists' && "دليل الصيدلانيين والشهادات والتقييمات"}
             </h2>
             <button 
-              onClick={() => setShowNotifCenter(true)}
-              className="relative p-1.5 hover:bg-teal-800 rounded-full transition-colors focus:outline-none"
+              onClick={() => setShowNotifDropdown(!showNotifDropdown)}
+              className="relative p-1.5 hover:bg-teal-800 rounded-full transition-colors focus:outline-none cursor-pointer"
+              title="تنبيهات الصيدلية والجرعات"
             >
               <Bell className="w-5 h-5 text-teal-100" />
-              {notifications.filter(n => !n.read).length > 0 && (
-                <span className="absolute top-0 right-0 w-4 h-4 bg-rose-600 text-[9px] text-white font-bold rounded-full flex items-center justify-center">
-                  {notifications.filter(n => !n.read).length}
+              {totalAlertCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-rose-600 text-[9px] text-white font-extrabold rounded-full flex items-center justify-center animate-pulse shadow-sm border border-teal-800">
+                  {totalAlertCount}
                 </span>
               )}
             </button>
@@ -1643,8 +1848,29 @@ export default function MobilePatientSimulator({
               <div className="absolute top-[-30px] left-[-30px] w-24 h-24 bg-teal-600 opacity-20 rounded-full"></div>
               <div className="flex items-center space-x-3 space-x-reverse justify-between relative z-10">
                 <div className="flex items-center space-x-2 space-x-reverse">
-                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center text-teal-200 font-bold text-xl border border-white/30">
-                    {activePatient?.fullName[0] || "م"}
+                  <div className="relative group">
+                    <button
+                      onClick={() => setIsPhotoUploaderOpen(true)}
+                      className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center text-teal-200 font-bold text-xl border border-white/30 overflow-hidden shadow-inner cursor-pointer hover:opacity-90 transition-all"
+                      title="التقاط أو تخصيص الصورة الشخصية"
+                    >
+                      {activePatient?.profilePhotoUrl ? (
+                        <img
+                          src={activePatient.profilePhotoUrl}
+                          alt={activePatient.fullName}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        activePatient?.fullName[0] || "م"
+                      )}
+                    </button>
+                    <button
+                      onClick={() => setIsPhotoUploaderOpen(true)}
+                      className="absolute -bottom-1 -left-1 w-5 h-5 bg-teal-500 hover:bg-teal-400 text-slate-950 rounded-full flex items-center justify-center border border-white shadow-md cursor-pointer transition-all hover:scale-110"
+                      title="التقاط أو تغيير الصورة الشخصية بالكاميرا"
+                    >
+                      <Camera className="w-3 h-3" />
+                    </button>
                   </div>
                   <div>
                     <p className="text-xs text-teal-100">مرحباً بك في InfoDoctors</p>
@@ -1669,13 +1895,14 @@ export default function MobilePatientSimulator({
                   </select>
 
                   <button 
-                    onClick={() => setShowNotifCenter(true)}
+                    onClick={() => setShowNotifDropdown(!showNotifDropdown)}
                     className="relative p-1.5 bg-teal-900/50 hover:bg-teal-800/80 border border-teal-500/30 rounded-lg cursor-pointer text-white transition-all flex items-center justify-center focus:outline-none"
+                    title="تنبيهات الصيدلية والجرعات"
                   >
                     <Bell className="w-3.5 h-3.5 text-teal-200" />
-                    {notifications.filter(n => !n.read).length > 0 && (
-                      <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-rose-600 text-white text-[8px] font-bold rounded-full flex items-center justify-center">
-                        {notifications.filter(n => !n.read).length}
+                    {totalAlertCount > 0 && (
+                      <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-rose-600 text-white text-[8px] font-extrabold rounded-full flex items-center justify-center animate-pulse border border-teal-900 shadow-sm">
+                        {totalAlertCount}
                       </span>
                     )}
                   </button>
@@ -1730,6 +1957,48 @@ export default function MobilePatientSimulator({
               </div>
             )}
 
+            {/* SUMMARY STATISTICS COMPONENT: Prescription count, upcoming consultations, medication adherence % */}
+            <PatientPortalSummaryStats
+              patient={activePatient}
+              bookedServices={bookedServices}
+              takenDosesCount={Object.values(pillStatus).filter(Boolean).length || 15}
+              skippedDosesCount={Object.values(skippedAlarms).filter(Boolean).length || 1}
+              reportsCount={reports.length || 2}
+              onNavigateToScreen={(scr) => setScreen(scr as any)}
+            />
+
+            {/* MEDICATION ADHERENCE ALERTS & UPCOMING SCHEDULE LIST */}
+            <MedicationScheduleAlerts
+              patient={activePatient}
+              showScheduleOnlyOnDashboard={true}
+              onDoseTaken={(doseId) => setPillStatus(prev => ({ ...prev, [doseId]: true }))}
+              onDoseSkipped={(doseId) => setSkippedAlarms(prev => ({ ...prev, [doseId]: true }))}
+              onDoseSnoozed={(doseId) => setSnoozedAlarms(prev => ({ ...prev, [doseId]: { time: new Date().toISOString(), count: (prev[doseId]?.count || 0) + 1 } }))}
+              onAddNotification={(notif) => setNotifications(prev => [{
+                id: `notif-${Date.now()}`,
+                recipient: 'patient',
+                title: notif.title,
+                body: notif.body,
+                type: notif.type as any,
+                read: false,
+                createdAt: new Date().toISOString()
+              }, ...prev])}
+            />
+
+            {/* RECENT NOTIFICATIONS COMPONENT: Reminders for upcoming appointments & prescription audit results */}
+            <RecentNotifications
+              notifications={notifications}
+              patient={activePatient}
+              onMarkAsRead={(notifId) => setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, read: true } : n))}
+              onMarkAllAsRead={() => setNotifications(prev => prev.map(n => ({ ...n, read: true })))}
+              onNavigateToScreen={(scr) => setScreen(scr as any)}
+              onSelectAuditReport={(repId) => {
+                const rep = reports.find(r => r.id === repId) || reports[0];
+                if (rep) setSelectedReport(rep);
+                setScreen('reports');
+              }}
+            />
+
             {/* Interactive Patient Overview bento trigger */}
             <button
               onClick={() => {
@@ -1753,6 +2022,26 @@ export default function MobilePatientSimulator({
                 </div>
               </div>
               <ChevronRight className="w-3.5 h-3.5 text-amber-600" />
+            </button>
+
+            {/* PHARMACISTS DIRECTORY & PROFILES TRIGGER CARD */}
+            <button
+              onClick={() => setScreen('pharmacists')}
+              className="w-full text-right p-3.5 bg-gradient-to-r from-teal-900 via-slate-900 to-indigo-950 text-white rounded-2xl shadow-md border border-teal-500/30 flex items-center justify-between transition-all hover:scale-[1.01] cursor-pointer"
+            >
+              <div className="flex items-center space-x-3 space-x-reverse">
+                <div className="w-10 h-10 bg-teal-500/20 text-teal-300 border border-teal-400/30 rounded-xl flex items-center justify-center font-bold">
+                  <UserCheck className="w-5 h-5 text-teal-300" />
+                </div>
+                <div>
+                  <h5 className="font-black text-[13px] text-white flex items-center gap-1.5">
+                    <span>دليل الصيدلانيين والشهادات والتقييمات</span>
+                    <span className="bg-amber-400 text-slate-950 text-[9.5px] font-black px-2 py-0.5 rounded-full shadow-2xs">جديد ⭐</span>
+                  </h5>
+                  <p className="text-[10.5px] text-teal-200">افحص ملفات الصيدلانيين، التراخيص والشهادات وتقييمات المرضى</p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-teal-300" />
             </button>
 
             {/* Premium Services Grid */}
@@ -2033,6 +2322,45 @@ export default function MobilePatientSimulator({
             <div className="border-b border-slate-100 pb-3">
               <h3 className="text-sm font-bold text-slate-800">تعديل ملف الصحة والتحسس الخاص بك</h3>
               <p className="text-[11px] text-slate-500">يحفظ هذا التعديل مباشرة في المستودع المرجعي للمشاركة مع مدققك الصيدلي.</p>
+            </div>
+
+            {/* Profile Picture Personalization Banner Card */}
+            <div className="bg-gradient-to-r from-teal-50 to-cyan-50 border border-teal-200 p-3.5 rounded-2xl flex items-center justify-between shadow-2xs">
+              <div className="flex items-center space-x-3 space-x-reverse">
+                <div className="relative">
+                  <div className="w-14 h-14 rounded-2xl bg-teal-600 text-white flex items-center justify-center font-bold text-xl border-2 border-white shadow-md overflow-hidden">
+                    {activePatient?.profilePhotoUrl ? (
+                      <img
+                        src={activePatient.profilePhotoUrl}
+                        alt={activePatient.fullName}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      activePatient?.fullName[0] || "م"
+                    )}
+                  </div>
+                  <button
+                    onClick={() => setIsPhotoUploaderOpen(true)}
+                    className="absolute -bottom-1 -left-1 bg-teal-600 hover:bg-teal-700 text-white p-1 rounded-full border-2 border-white shadow-md transition-all hover:scale-110 cursor-pointer"
+                    title="تحديث الصورة الكاميرا"
+                  >
+                    <Camera className="w-3 h-3" />
+                  </button>
+                </div>
+                <div>
+                  <h4 className="font-extrabold text-xs text-slate-800">{activePatient?.fullName}</h4>
+                  <p className="text-[10.5px] text-teal-700 font-bold">الصورة الشخصية المعتمدة للملف الطبي</p>
+                  <span className="text-[9.5px] text-slate-500 block">يمكنك التقاط صورة مباشرة من الكاميرا 📸</span>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setIsPhotoUploaderOpen(true)}
+                className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-[11px] px-3 py-1.5 rounded-xl transition-all shadow-xs flex items-center gap-1 cursor-pointer"
+              >
+                <Camera className="w-3.5 h-3.5" />
+                <span>تغيير 📸</span>
+              </button>
             </div>
 
             {/* Demographics indicators */}
@@ -3652,6 +3980,16 @@ export default function MobilePatientSimulator({
               </p>
             </div>
 
+            {/* SUMMARY STATISTICS COMPONENT */}
+            <PatientPortalSummaryStats
+              patient={activePatient}
+              bookedServices={bookedServices}
+              takenDosesCount={Object.values(pillStatus).filter(Boolean).length || 15}
+              skippedDosesCount={Object.values(skippedAlarms).filter(Boolean).length || 1}
+              reportsCount={reports.length || 2}
+              onNavigateToScreen={(scr) => setScreen(scr as any)}
+            />
+
             {/* PART 1: KEY HEALTH METRICS */}
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
               <div className="flex items-center space-x-2 space-x-reverse border-b border-slate-100 pb-2">
@@ -3932,9 +4270,16 @@ export default function MobilePatientSimulator({
                     {selectedReport.serviceType === "OTC_CONSULTATION" ? "استشارة دوائية لا وصفية OTC" : "تدقيق روشتة DUR"}
                   </span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-slate-400">الصيدلي الإكلينيكي الموقع:</span>
-                  <span className="font-bold text-slate-700">{selectedReport.pharmacistName}</span>
+                  <button
+                    onClick={() => handleOpenPharmacistProfile("LIC-12345")}
+                    className="font-bold text-teal-700 hover:text-teal-900 flex items-center gap-1 cursor-pointer transition-colors"
+                    title="انقر لعرض الملف الشامل والشهادات وتقييمات المرضى"
+                  >
+                    <span>{selectedReport.pharmacistName}</span>
+                    <span className="text-[9px] bg-teal-100 text-teal-800 px-1.5 py-0.5 rounded font-sans">ملف الصيدلي 📜</span>
+                  </button>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-400">تاريخ الاعتماد:</span>
@@ -4248,6 +4593,38 @@ export default function MobilePatientSimulator({
               <span>إرسال وتجريب منبه فوري بنظام الإشعارات المزدوج الآن</span>
             </button>
 
+            {/* RECENT NOTIFICATIONS COMPONENT */}
+            <RecentNotifications
+              notifications={notifications}
+              patient={activePatient}
+              onMarkAsRead={(notifId) => setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, read: true } : n))}
+              onMarkAllAsRead={() => setNotifications(prev => prev.map(n => ({ ...n, read: true })))}
+              onNavigateToScreen={(scr) => setScreen(scr as any)}
+              onSelectAuditReport={(repId) => {
+                const rep = reports.find(r => r.id === repId) || reports[0];
+                if (rep) setSelectedReport(rep);
+                setScreen('reports');
+              }}
+            />
+
+            {/* FULL MEDICATION ADHERENCE ALERTS SETTINGS & SCHEDULE */}
+            <MedicationScheduleAlerts
+              patient={activePatient}
+              showScheduleOnlyOnDashboard={false}
+              onDoseTaken={(doseId) => setPillStatus(prev => ({ ...prev, [doseId]: true }))}
+              onDoseSkipped={(doseId) => setSkippedAlarms(prev => ({ ...prev, [doseId]: true }))}
+              onDoseSnoozed={(doseId) => setSnoozedAlarms(prev => ({ ...prev, [doseId]: { time: new Date().toISOString(), count: (prev[doseId]?.count || 0) + 1 } }))}
+              onAddNotification={(notif) => setNotifications(prev => [{
+                id: `notif-${Date.now()}`,
+                recipient: 'patient',
+                title: notif.title,
+                body: notif.body,
+                type: notif.type as any,
+                read: false,
+                createdAt: new Date().toISOString()
+              }, ...prev])}
+            />
+
             {/* List Active Profile Drugs */}
             <div className="space-y-2">
               <div className="flex justify-between items-center px-1">
@@ -4465,6 +4842,253 @@ export default function MobilePatientSimulator({
           </div>
         )}
 
+        {/* SCREEN: PHARMACISTS DIRECTORY & REVIEWS */}
+        {screen === 'pharmacists' && (
+          <div className="flex-1 p-4 bg-slate-50 space-y-4 overflow-y-auto">
+            <button
+              onClick={() => setScreen('dashboard')}
+              className="flex items-center gap-1.5 text-xs font-bold text-teal-700 hover:text-teal-800 cursor-pointer mb-1"
+            >
+              <ArrowLeft className="w-4 h-4 transform rotate-180" />
+              <span>العودة للوحة الرئيسية</span>
+            </button>
+
+            <PharmacistsDirectory
+              onSelectPharmacist={(pharm) => handleOpenPharmacistProfile(pharm)}
+              onBookConsultation={(pharm) => {
+                setBookingSpecialty(pharm.specialty);
+                setScreen('otc-book');
+              }}
+            />
+          </div>
+        )}
+
+        {/* RECENT PHARMACY ALERTS & UPCOMING MEDICATION REMINDERS DROPDOWN POPOVER */}
+        {showNotifDropdown && (
+          <div className="absolute top-14 left-3 right-3 z-50 bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl p-3.5 text-right font-sans animate-in fade-in zoom-in-95 duration-150" style={{ direction: "rtl" }}>
+            {/* Header */}
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800 mb-2">
+              <div className="flex items-center space-x-2 space-x-reverse">
+                <div className="p-1.5 bg-teal-500/20 text-teal-400 rounded-lg relative">
+                  <Bell className="w-4 h-4 animate-bounce" />
+                  {totalAlertCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></span>
+                  )}
+                </div>
+                <div>
+                  <h4 className="text-xs font-extrabold text-white flex items-center gap-1.5">
+                    <span>مركز التنبيهات والجرعات</span>
+                    {totalAlertCount > 0 && (
+                      <span className="bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[9px] px-1.5 py-0.2 rounded-full font-black">
+                        {totalAlertCount} جديد
+                      </span>
+                    )}
+                  </h4>
+                  <span className="text-[9.5px] text-slate-400">
+                    تنبيهات الأدوية والتقارير الطبية المعتمدة
+                  </span>
+                </div>
+              </div>
+              
+              <div className="flex items-center space-x-1 space-x-reverse">
+                <button
+                  onClick={() => setShowNotifDropdown(false)}
+                  className="text-slate-400 hover:text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-md bg-slate-800 cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Tabs Bar */}
+            <div className="flex border-b border-slate-800 mb-3 text-xs font-bold">
+              <button
+                onClick={() => setNotifDropdownTab('reminders')}
+                className={`flex-1 py-1.5 px-2 text-center flex items-center justify-center space-x-1 space-x-reverse transition-all border-b-2 cursor-pointer ${
+                  notifDropdownTab === 'reminders'
+                    ? 'border-teal-400 text-teal-300 bg-teal-950/40 font-extrabold'
+                    : 'border-transparent text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <span>💊 الجرعات القادمة</span>
+                {pendingRemindersCount > 0 && (
+                  <span className="bg-amber-500 text-slate-950 text-[9px] px-1.5 py-0.2 rounded-full font-extrabold">
+                    {pendingRemindersCount}
+                  </span>
+                )}
+              </button>
+
+              <button
+                onClick={() => setNotifDropdownTab('alerts')}
+                className={`flex-1 py-1.5 px-2 text-center flex items-center justify-center space-x-1 space-x-reverse transition-all border-b-2 cursor-pointer ${
+                  notifDropdownTab === 'alerts'
+                    ? 'border-teal-400 text-teal-300 bg-teal-950/40 font-extrabold'
+                    : 'border-transparent text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <span>🔔 تنبيهات النظام</span>
+                {unreadAlertsCount > 0 && (
+                  <span className="bg-rose-500 text-white text-[9px] px-1.5 py-0.2 rounded-full font-extrabold">
+                    {unreadAlertsCount}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* TAB CONTENT 1: UPCOMING MEDICATION REMINDERS */}
+            {notifDropdownTab === 'reminders' && (
+              <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                {upcomingReminders.length === 0 ? (
+                  <div className="text-center py-6 text-slate-400 text-xs">
+                    لا توجد أدوية أو جرعات مسجلة حالياً في خطتك.
+                  </div>
+                ) : (
+                  upcomingReminders.map((reminder) => (
+                    <div
+                      key={reminder.id}
+                      className={`p-2.5 rounded-xl border text-xs transition-all ${
+                        reminder.isTaken
+                          ? "bg-slate-950/40 border-slate-800 text-slate-400 opacity-75"
+                          : "bg-slate-800/90 border-teal-500/40 hover:bg-slate-800 text-white shadow-sm"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className={`text-[9.5px] px-2 py-0.5 rounded-md font-bold flex items-center gap-1 ${
+                          reminder.isTaken
+                            ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/50'
+                            : 'bg-amber-950/80 text-amber-300 border border-amber-800/50'
+                        }`}>
+                          {reminder.isTaken ? '✅ تم أخذ الجرعة' : '⏰ جرعة قادمة'}
+                        </span>
+
+                        <span className="text-[10px] text-teal-300 font-bold bg-slate-900 px-2 py-0.5 rounded border border-slate-700">
+                          {reminder.time}
+                        </span>
+                      </div>
+
+                      <h5 className="font-bold text-[11.5px] text-white leading-tight flex items-center gap-1">
+                        <span>💊 {reminder.medName}</span>
+                      </h5>
+
+                      <div className="text-[10px] text-slate-300 mt-1 space-y-0.5">
+                        <p><span className="text-slate-400">الجرعة:</span> <strong className="text-teal-200">{reminder.dose}</strong></p>
+                        {reminder.foodRelation && (
+                          <p><span className="text-slate-400">التعليمات:</span> {reminder.foodRelation}</p>
+                        )}
+                        {reminder.instructions && reminder.instructions !== reminder.time && (
+                          <p className="text-[9.5px] text-amber-200/90">{reminder.instructions}</p>
+                        )}
+                      </div>
+
+                      <div className="mt-2 pt-1.5 border-t border-slate-700/60 flex items-center justify-between">
+                        {!reminder.isTaken ? (
+                          <button
+                            onClick={() => handleTakeDoseInDropdown(reminder.id, reminder.medName)}
+                            className="bg-teal-600 hover:bg-teal-500 text-white font-extrabold text-[10px] px-2.5 py-1 rounded-lg transition-all shadow-sm cursor-pointer flex items-center gap-1"
+                          >
+                            <span>تأكيد أخذ الجرعة 💊</span>
+                          </button>
+                        ) : (
+                          <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-1">
+                            <span>✓ مكتملة اليوم</span>
+                          </span>
+                        )}
+
+                        <button
+                          onClick={() => {
+                            setScreen('pillbox');
+                            setShowNotifDropdown(false);
+                          }}
+                          className="text-[9.5px] text-slate-400 hover:text-teal-300 underline cursor-pointer"
+                        >
+                          عرض علبة الأدوية 📦
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* TAB CONTENT 2: PHARMACY ALERTS */}
+            {notifDropdownTab === 'alerts' && (
+              <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                {notifications.length === 0 ? (
+                  <div className="text-center py-6 text-slate-500 text-xs">لا توجد تنبيهات صيدلانية حالياً.</div>
+                ) : (
+                  <>
+                    {notifications.some(n => !n.read) && (
+                      <div className="flex justify-end mb-1">
+                        <button
+                          onClick={() => {
+                            setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+                          }}
+                          className="text-[9.5px] text-teal-400 hover:text-teal-300 font-bold bg-teal-950/60 px-2 py-0.5 rounded-lg border border-teal-800/50 cursor-pointer"
+                        >
+                          قراءة كافة التنبيهات
+                        </button>
+                      </div>
+                    )}
+                    {notifications.slice(0, 5).map((n) => (
+                      <div
+                        key={n.id}
+                        onClick={() => {
+                          markNotifAsRead(n.id);
+                          if (n.type === 'ReportSigned') {
+                            setScreen('overview');
+                            setShowNotifDropdown(false);
+                          } else if (n.type === 'PillReminder') {
+                            setScreen('pillbox');
+                            setShowNotifDropdown(false);
+                          }
+                        }}
+                        className={`p-2.5 rounded-xl border text-xs cursor-pointer transition-all ${
+                          !n.read 
+                            ? "bg-slate-800/90 border-teal-500/50 hover:bg-slate-800 text-white" 
+                            : "bg-slate-950/60 border-slate-800 text-slate-300 hover:bg-slate-900"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className={`text-[9.5px] px-2 py-0.5 rounded-md font-bold ${
+                            n.type === 'PillReminder' 
+                              ? 'bg-amber-950 text-amber-300 border border-amber-800/50'
+                              : n.type === 'ReportSigned'
+                              ? 'bg-emerald-950 text-emerald-300 border border-emerald-800/50'
+                              : 'bg-teal-950 text-teal-300 border border-teal-800/50'
+                          }`}>
+                            {n.type === 'PillReminder' ? '💊 جرعة دواء' : n.type === 'ReportSigned' ? '📋 تقرير معتمد' : '🔔 تنبيه صيدلاني'}
+                          </span>
+
+                          <div className="flex items-center space-x-1.5 space-x-reverse text-[9px] text-slate-400">
+                            <span>{new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            {!n.read && <span className="w-2 h-2 rounded-full bg-rose-500"></span>}
+                          </div>
+                        </div>
+
+                        <h5 className="font-bold text-[11px] text-white leading-tight">{n.title}</h5>
+                        <p className="text-[10px] text-slate-300 mt-1 leading-normal">{n.body}</p>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Footer button */}
+            <div className="pt-2 mt-2 border-t border-slate-800 flex justify-between items-center text-[10px]">
+              <button
+                onClick={() => {
+                  setShowNotifDropdown(false);
+                  setShowNotifCenter(true);
+                }}
+                className="w-full text-center bg-teal-600 hover:bg-teal-500 text-white font-bold py-1.5 rounded-xl transition-all shadow-sm cursor-pointer"
+              >
+                عرض كافة التنبيهات والمنبهات المعتمدة ({notifications.length}) ➔
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* IN-APP MOBILE NOTIFICATION CENTER PANEL */}
         {showNotifCenter && (
           <div className="absolute inset-0 bg-slate-900/95 backdrop-blur-md z-50 p-4 pt-10 text-right flex flex-col justify-between font-sans">
@@ -4564,6 +5188,27 @@ export default function MobilePatientSimulator({
         )}
 
       </div>
+
+      {/* PHARMACIST PROFILE & PATIENT REVIEWS MODAL */}
+      <PharmacistProfileModal
+        pharmacist={selectedPharmacistProfile}
+        isOpen={isPharmacistModalOpen}
+        onClose={() => setIsPharmacistModalOpen(false)}
+        currentPatientName={activePatient?.fullName}
+        onAddReview={handleAddPharmacistReview}
+        onBookConsultation={(pharm) => {
+          setBookingSpecialty(pharm.specialty);
+          setScreen('otc-book');
+        }}
+      />
+
+      {/* PROFILE PHOTO CAMERA UPLOADER MODAL */}
+      <ProfilePhotoUploader
+        patient={activePatient}
+        isOpen={isPhotoUploaderOpen}
+        onClose={() => setIsPhotoUploaderOpen(false)}
+        onSavePhoto={handleSaveProfilePhoto}
+      />
 
       {/* Internal Phone Bottom Home Bar Indicator */}
       <div className="w-full flex justify-center py-1">

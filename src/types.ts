@@ -99,6 +99,7 @@ export interface PatientProfile {
   phonePrimary: string;
   phoneBackup?: string;
   dob: string; // YYYY-MM-DD for dynamic Age formula
+  profilePhotoUrl?: string; // Base64 data URL or photo link
   address: {
     country: string;
     governorate: string; // Modern Egyptian Governorates (e.g., Cairo, Giza, Alexandria)
@@ -306,14 +307,34 @@ export interface PaymentTransaction {
 
 export type PharmacistDegree = 'junior' | 'Senior' | 'Specialist' | 'consultant' | 'prime consultant';
 
+export interface PharmacistReview {
+  id: string;
+  patientName: string;
+  patientAvatar?: string;
+  rating: number; // 1 to 5 stars
+  date: string;
+  comment: string;
+  serviceType?: string; // e.g., 'OTC Consultation' | 'Prescription Audit' | 'Medication Plan'
+}
+
 export interface PharmacistProfile {
+  id?: string;
   fullName: string;
-  licenseNumber: string;
+  licenseNumber: string; // e.g. LIC-12345
   specialty: ApprovedSpecialty;
   degree: PharmacistDegree;
   country: string;
   governorate: string; // governorate of Egypt
   city: string;
+  photoUrl?: string;
+  bio?: string;
+  experienceYears?: number;
+  certificates?: string[]; // Professional Certificates (e.g., PharmD, BCPS, DUR Fellowship)
+  rating?: number; // e.g., 4.9
+  reviewCount?: number;
+  totalConsultations?: number;
+  reviews?: PharmacistReview[];
+  status?: 'online' | 'offline';
 }
 
 // Admin Operational Dashboard Metrics

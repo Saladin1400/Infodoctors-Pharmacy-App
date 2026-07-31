@@ -20,6 +20,7 @@ import { OtcConsultation, PrescriptionRevision, PatientProfile, ClinicalReport, 
 import AuthInterface from "./AuthInterface";
 import { Fingerprint, Lock, LogOut, ShieldCheck } from "lucide-react";
 import MedicationInteractionsChart from "./MedicationInteractionsChart";
+import AuditAssistModule from "./AuditAssistModule";
 import { registerPushNotifications, triggerLocalNativeNotification } from "../lib/pushNotifications";
 
 interface PharmacistWorkspaceProps {
@@ -491,7 +492,7 @@ export default function PharmacistWorkspace({
           }
         });
     }
-  }, [currentUser]);
+  }, [currentUser?.licenseNumber, currentUser?.fullName]);
 
   const handleSaveProfile = async () => {
     if (!profileName.trim()) {
@@ -608,7 +609,7 @@ export default function PharmacistWorkspace({
         }
       }
     } catch (err) {
-      console.error("Error loading notifications:", err);
+      console.warn("Notice loading skipped:", err);
     }
   };
 
@@ -619,7 +620,7 @@ export default function PharmacistWorkspace({
         setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
       }
     } catch (err) {
-      console.error(err);
+      console.warn("Mark notification read failed:", err);
     }
   };
 
@@ -650,7 +651,7 @@ export default function PharmacistWorkspace({
             setMmpCases(data.plan || []);
           }
         })
-        .catch(err => console.error("Sync error:", err));
+        .catch(err => console.warn("Sync notice:", err));
     }, 6000);
 
     return () => clearInterval(interval);
@@ -2416,7 +2417,21 @@ export default function PharmacistWorkspace({
                 </div>
               ) : activeTab === 'REV' ? (
                 // SERVICE B FORM: PRESCRIPTION REVISION
-                <div className="space-y-2.5 text-right">
+                <div className="space-y-3 text-right">
+                  
+                  {/* RULE-BASED CLINICAL AUDIT ASSIST MODULE */}
+                  <AuditAssistModule
+                    patient={activePatient}
+                    customMeds={(activeCase as any)?.ocrDrugList || []}
+                    onApplyFindingsToReport={(findings) => {
+                      setDrugDrugInteractions(findings.ddiSeverity);
+                      setInteractionDetails(findings.details);
+                      if (findings.unnecessaryMeds) {
+                        setUnnecessaryMedications(findings.unnecessaryMeds);
+                      }
+                    }}
+                  />
+
                   <div className="grid grid-cols-2 gap-2 text-right">
                     <div className="space-y-1">
                       <LabelText text="التشخيص الإكلينيكي المرجح:" />

@@ -10,7 +10,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-import { PatientProfile, OtcConsultation, PrescriptionRevision, MedicationManagementPlan, ClinicalReport, OperationalMetrics, AppNotification, UserAccount, PaymentTransaction, PharmacistProfile, PharmacistDegree } from "./src/types";
+import { PatientProfile, OtcConsultation, PrescriptionRevision, MedicationManagementPlan, ClinicalReport, OperationalMetrics, AppNotification, UserAccount, PaymentTransaction, PharmacistProfile, PharmacistDegree, PharmacistReview } from "./src/types";
 import { DB, connectDB } from "./server/db";
 import http from "http";
 import { WebSocketServer, WebSocket } from "ws";
@@ -356,7 +356,36 @@ const pharmacistsDB: Record<string, PharmacistProfile> = {
     degree: "Specialist",
     country: "مصر",
     governorate: "القاهرة",
-    city: "القاهرة الجديدة"
+    city: "القاهرة الجديدة",
+    photoUrl: "https://images.unsplash.com/photo-1594824813566-88855ce78907?q=80&w=256&auto=format&fit=crop",
+    bio: "أخصائية الصيدلة الإكلينيكية للنساء والتوليد، متخصصة في سلامة الأدوية أثناء الحمل والرضاعة ومراجعة التفاعلات الدوائية للروشتات المركبة.",
+    experienceYears: 8,
+    certificates: [
+      "PharmD - بكالوريوس العلوم الصيدلية بجامعة القاهرة",
+      "شهادة التخصص السريري لأدوية النساء والتوليد والرضاعة",
+      "البورد الأمريكي في الصيدلة الإكلينيكية (BCPS)"
+    ],
+    rating: 4.9,
+    reviewCount: 42,
+    totalConsultations: 310,
+    reviews: [
+      {
+        id: "rev-101",
+        patientName: "أسماء السيد القاضي",
+        rating: 5,
+        date: "منذ يومين",
+        comment: "دكتورة أميرة ممتازة جداً! طمأنتني بخصوص دواء الحساسية أثناء الحمل وشرحت الجرعة بكل دقة وحرص.",
+        serviceType: "استشارة OTC"
+      },
+      {
+        id: "rev-102",
+        patientName: "هدى فتحي بركات",
+        rating: 5,
+        date: "منذ أسبوع",
+        comment: "تدقيق سريع ومحترف للروشتة، اكتشفت جرعة زائدة بالفيتامينات ونبهت طبيبي المباشر.",
+        serviceType: "تدقيق روشتة (DUR)"
+      }
+    ]
   },
   "LIC-67890": {
     fullName: "د. هاني شاكر العشري",
@@ -365,7 +394,28 @@ const pharmacistsDB: Record<string, PharmacistProfile> = {
     degree: "consultant",
     country: "مصر",
     governorate: "الجيزة",
-    city: "الدقي"
+    city: "الدقي",
+    photoUrl: "https://images.unsplash.com/photo-1622253692010-333f2da6031d?q=80&w=256&auto=format&fit=crop",
+    bio: "استشاري الصيدلة الإكلينيكية لأمراض القلب والقسطرة والأوعية الدموية. خبير في تعديل جرعات مضادات التجلط وقياس مستويات سيولة الدم.",
+    experienceYears: 14,
+    certificates: [
+      "دكتوراه الصيدلة الإكلينيكية والقلب (PharmD - Ain Shams)",
+      "شهادة الاعتماد الأمريكي للصيدلة القلبية الإكلينيكية (BCCCP)",
+      "زمالة تدقيق الروشتات ومراجعة التداخلات الدوائية"
+    ],
+    rating: 5.0,
+    reviewCount: 89,
+    totalConsultations: 520,
+    reviews: [
+      {
+        id: "rev-201",
+        patientName: "حسين الشاذلي",
+        rating: 5,
+        date: "منذ 4 أيام",
+        comment: "دكتور هاني قامة علمية رفيعة. عدل لي مواعيد الماريفان وضبط لي أوقات قياس تحليل الـ INR بدقة متناهية.",
+        serviceType: "خطة إدارة الأدوية (MMP)"
+      }
+    ]
   },
   "LIC-11111": {
     fullName: "د. منى عبد الرحمن السعيد",
@@ -374,7 +424,28 @@ const pharmacistsDB: Record<string, PharmacistProfile> = {
     degree: "prime consultant",
     country: "مصر",
     governorate: "الإسكندرية",
-    city: "سموحة"
+    city: "سموحة",
+    photoUrl: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?q=80&w=256&auto=format&fit=crop",
+    bio: "استشاري أول الصيدلة الإكلينيكية لأمراض السكري والغدد الصماء. خبرة 18 سنة في تصميم الجداول الزمنية لتنظيم الأنسولين وتفادي نزلات هبوط السكر.",
+    experienceYears: 18,
+    certificates: [
+      "دكتوراه الصيدلة الإكلينيكية بجامعة الإسكندرية",
+      "زمالة الصيدلة السريرية الدولية لأمراض السكري (BCACP)",
+      "اعتماد تدريب مرضى السكري على الأجهزة الحديثة ومضخات الأنسولين"
+    ],
+    rating: 4.95,
+    reviewCount: 115,
+    totalConsultations: 780,
+    reviews: [
+      {
+        id: "rev-301",
+        patientName: "سامح إبراهيم زكي",
+        rating: 5,
+        date: "منذ يومين",
+        comment: "دكتورة منى غيرت حياتي في التعامل مع السكر! وضعت لي خطة منبهات تذكيرية ممتازة لجرعات الأنسولين.",
+        serviceType: "خطة إدارة الأدوية (MMP)"
+      }
+    ]
   },
   "LIC-22222": {
     fullName: "د. رامي يوسف الخواجة",
@@ -383,7 +454,19 @@ const pharmacistsDB: Record<string, PharmacistProfile> = {
     degree: "Senior",
     country: "مصر",
     governorate: "القاهرة",
-    city: "مصر الجديدة"
+    city: "مصر الجديدة",
+    photoUrl: "https://images.unsplash.com/photo-1537368910025-700350fe46c7?q=80&w=256&auto=format&fit=crop",
+    bio: "صيدلي إكلينيكي أول لأمراض الأورام والعلاج الكيميائي، متخصص في مراجعة الجرعات الحيوية والتأكد من تفادي السمية الدوائية.",
+    experienceYears: 9,
+    certificates: [
+      "PharmD - جامعة عين شمس",
+      "شهادة تخصص صيدلة الأورام الإكلينيكية (BCOP)",
+      "دبلوم تقليل الآثار الجانبية للعلاجات الموجهة"
+    ],
+    rating: 4.8,
+    reviewCount: 34,
+    totalConsultations: 240,
+    reviews: []
   },
   "LIC-33333": {
     fullName: "د. سارة عثمان البدري",
@@ -392,7 +475,19 @@ const pharmacistsDB: Record<string, PharmacistProfile> = {
     degree: "Specialist",
     country: "مصر",
     governorate: "الدقهلية",
-    city: "المنصورة"
+    city: "المنصورة",
+    photoUrl: "https://images.unsplash.com/photo-1651008376811-b90baee60c1f?q=80&w=256&auto=format&fit=crop",
+    bio: "أخصائية الصيدلة الإكلينيكية للأطفال وحسب الوزن والعمر. متخصصة في حاسبات جرعات المضادات الحيوية وشرابات الرضع.",
+    experienceYears: 7,
+    certificates: [
+      "PharmD - جامعة المنصورة",
+      "شهادة تخصص صيدلة الأطفال الإكلينيكية (BCPPS)",
+      "اعتماد الاستشارات الدوائية اللاروشتية للأطفال"
+    ],
+    rating: 4.9,
+    reviewCount: 56,
+    totalConsultations: 390,
+    reviews: []
   },
   "LIC-44444": {
     fullName: "د. مصطفى رأفت النجار",
@@ -401,7 +496,18 @@ const pharmacistsDB: Record<string, PharmacistProfile> = {
     degree: "junior",
     country: "مصر",
     governorate: "القليوبية",
-    city: "بنها"
+    city: "بنها",
+    photoUrl: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?q=80&w=256&auto=format&fit=crop",
+    bio: "صيدلي إكلينيكي لأمراض الصدر والحساسية، يركز على التدريب على طرق الاستنشاق الصحيحة لبخاخات الربو وحساب الجرعات الوقائية.",
+    experienceYears: 4,
+    certificates: [
+      "PharmD - جامعة بنها",
+      "شهادة تدقيق علاجات الصدر والجهاز التنفسي"
+    ],
+    rating: 4.7,
+    reviewCount: 19,
+    totalConsultations: 120,
+    reviews: []
   },
   "LIC-55555": {
     fullName: "د. علاء محمود الجبالي",
@@ -410,7 +516,19 @@ const pharmacistsDB: Record<string, PharmacistProfile> = {
     degree: "consultant",
     country: "مصر",
     governorate: "الغربية",
-    city: "طنطا"
+    city: "طنطا",
+    photoUrl: "https://images.unsplash.com/photo-1582750433449-648ed127bb54?q=80&w=256&auto=format&fit=crop",
+    bio: "استشاري الصيدلة السريرية لأمراض الكلى واستسقاء الكبيبات وتعديل الجرعات حسب معدل الرشح الكليوي (eGFR).",
+    experienceYears: 12,
+    certificates: [
+      "PharmD - جامعة طنطا",
+      "زمالة تعديل الجرعات لمرضى القصور الكليوي والغسيل الكلوي",
+      "شهادة البورد في الصيدلة الإكلينيكية (BCPS)"
+    ],
+    rating: 4.9,
+    reviewCount: 68,
+    totalConsultations: 460,
+    reviews: []
   },
   "LIC-88888": {
     fullName: "د. نورهان مجدي فودة",
@@ -419,7 +537,18 @@ const pharmacistsDB: Record<string, PharmacistProfile> = {
     degree: "Senior",
     country: "مصر",
     governorate: "سوهاج",
-    city: "طهطا"
+    city: "طهطا",
+    photoUrl: "https://images.unsplash.com/photo-1594824813566-88855ce78907?q=80&w=256&auto=format&fit=crop",
+    bio: "صيدلية إكلينيكية أولى لأمراض الجهاز الهضمي والكبد ومراجعة مكملات وتغذية المرضى.",
+    experienceYears: 6,
+    certificates: [
+      "PharmD - جامعة سوهاج",
+      "شهادة مراجعة علاجات القولون وقرحة المعدة"
+    ],
+    rating: 4.85,
+    reviewCount: 27,
+    totalConsultations: 210,
+    reviews: []
   }
 };
 
@@ -1495,6 +1624,38 @@ app.post("/api/v1/pharmacists/profile", (req, res) => {
   });
 
   res.json({ success: true, profile });
+});
+
+// POST review to pharmacist profile
+app.post("/api/v1/pharmacists/:licenseNumber/reviews", (req, res) => {
+  const { licenseNumber } = req.params;
+  const { patientName, rating, comment, serviceType } = req.body;
+
+  const pharmacist = pharmacistsDB[licenseNumber];
+  if (!pharmacist) {
+    return res.status(404).json({ error: "Pharmacist profile not found." });
+  }
+
+  const newReview: PharmacistReview = {
+    id: `rev-${Date.now()}`,
+    patientName: patientName || "مريض مستفيد",
+    rating: Number(rating) || 5,
+    date: "اليوم",
+    comment: comment || "",
+    serviceType: serviceType || "استشارة دوائية OTC"
+  };
+
+  if (!pharmacist.reviews) {
+    pharmacist.reviews = [];
+  }
+  pharmacist.reviews.unshift(newReview);
+  
+  // Recalculate average rating
+  const totalRating = pharmacist.reviews.reduce((acc, r) => acc + r.rating, 0);
+  pharmacist.rating = Number((totalRating / pharmacist.reviews.length).toFixed(2));
+  pharmacist.reviewCount = pharmacist.reviews.length;
+
+  res.json({ success: true, review: newReview, pharmacist });
 });
 
 // GET all pharmacists with online/offline status
