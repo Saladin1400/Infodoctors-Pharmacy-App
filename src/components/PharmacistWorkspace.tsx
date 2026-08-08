@@ -22,6 +22,7 @@ import { Fingerprint, Lock, LogOut, ShieldCheck } from "lucide-react";
 import MedicationInteractionsChart from "./MedicationInteractionsChart";
 import AuditAssistModule from "./AuditAssistModule";
 import { registerPushNotifications, triggerLocalNativeNotification } from "../lib/pushNotifications";
+import { useLanguage, LanguageSwitcher } from "../LanguageContext";
 
 interface PharmacistWorkspaceProps {
   onReportIssued: () => void;
@@ -38,6 +39,8 @@ export default function PharmacistWorkspace({
   onAuthSuccess,
   onLogout
 }: PharmacistWorkspaceProps) {
+  const { t, language, isRtl, dir } = useLanguage();
+
   // Store queues
   const [otcCases, setOtcCases] = useState<OtcConsultation[]>([]);
   const [revisionCases, setRevisionCases] = useState<PrescriptionRevision[]>([]);

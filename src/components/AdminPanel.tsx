@@ -21,9 +21,12 @@ import {
   Legend 
 } from "recharts";
 import { OperationalMetrics, ApprovedSpecialtiesList } from "../types";
+import { useLanguage, LanguageSwitcher } from "../LanguageContext";
 
 export default function AdminPanel() {
+  const { t, language, isRtl, dir } = useLanguage();
   const [metrics, setMetrics] = useState<OperationalMetrics | null>(null);
+
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'reports' | 'pharmacists' | 'pricing' | 'logs'>('reports');
   

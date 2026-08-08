@@ -24,6 +24,7 @@ import PharmacistProfileModal from "./PharmacistProfileModal";
 import PharmacistsDirectory from "./PharmacistsDirectory";
 import { Fingerprint, Lock, UserCheck } from "lucide-react";
 import { registerPushNotifications, triggerLocalNativeNotification } from "../lib/pushNotifications";
+import { useLanguage, LanguageSwitcher } from "../LanguageContext";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -69,6 +70,8 @@ export default function MobilePatientSimulator({
   onAuthSuccess,
   onLogout
 }: MobilePatientSimulatorProps) {
+  const { t, language, isRtl, dir } = useLanguage();
+
   // Navigation states inside simulated phone app
   // Screens: 'dashboard' | 'profile' | 'otc-book' | 'rev-book' | 'pillbox' | 'scanner' | 'payment' | 'videocall' | 'overview' | 'auth' | 'insights' | 'pharmacists'
   const [screen, setScreen] = useState<'dashboard' | 'profile' | 'otc-book' | 'rev-book' | 'pillbox' | 'scanner' | 'payment' | 'videocall' | 'overview' | 'auth' | 'insights' | 'pharmacists'>('dashboard');

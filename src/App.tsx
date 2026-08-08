@@ -7,16 +7,20 @@ import { useState, useEffect, FormEvent } from "react";
 import { 
   Phone, Users, BarChart3, Pill, ShieldAlert, Sparkles, 
   Lock, LogOut, ArrowRight, ShieldCheck, CheckCircle2,
-  ChevronRight, KeyRound, AlertCircle, X, Sliders
+  ChevronRight, KeyRound, AlertCircle, X, Sliders, Globe
 } from "lucide-react";
 import MobilePatientSimulator from "./components/MobilePatientSimulator";
 import PharmacistWorkspace from "./components/PharmacistWorkspace";
 import AdminPanel from "./components/AdminPanel";
 import { PatientProfile } from "./types";
+import { useLanguage, LanguageSwitcher } from "./LanguageContext";
 
 export default function App() {
+  const { t, language, isRtl, dir } = useLanguage();
+
   // Active Portal router: 'gateway' | 'patient' | 'pharmacist' | 'admin'
   const [activePortal, setActivePortal] = useState<'gateway' | 'patient' | 'pharmacist' | 'admin'>('gateway');
+
   
   // Real patient records fetched from custom API
   const [patients, setPatients] = useState<PatientProfile[]>([]);
@@ -159,62 +163,73 @@ export default function App() {
       
       {/* Top Header Navbar */}
       <header className="bg-slate-900 border-b border-slate-800 text-white shadow-md py-3.5 px-6 relative z-50">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4" style={{ direction: "rtl" }}>
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4" style={{ direction: dir }}>
           
           {/* Main Brand Title & Logo */}
           <div 
             onClick={() => setActivePortal('gateway')}
-            className="flex items-center space-x-3 space-x-reverse cursor-pointer group"
+            className={`flex items-center gap-3 cursor-pointer group ${isRtl ? 'flex-row' : 'flex-row'}`}
           >
             <div className="w-10 h-10 bg-teal-500 rounded-2xl flex items-center justify-center text-slate-950 font-black shadow-md shadow-teal-500/20 group-hover:scale-105 transition-transform">
               <Pill className="w-5 h-5" />
             </div>
             <div>
               <h1 className="text-base font-extrabold tracking-tight text-white flex items-center gap-2">
-                <span>إنفو دكتورز</span>
+                <span>{isRtl ? "إنفو دكتورز" : "Info Doctors"}</span>
                 <span className="text-[10px] bg-teal-500/20 text-teal-300 px-2 py-0.5 rounded-full font-mono border border-teal-500/30">
-                  {activePortal === 'pharmacist' ? 'مستودع الصيدلي' : activePortal === 'patient' ? 'تطبيق المريض' : activePortal === 'admin' ? 'لوحة الإدارة' : 'المنصة الطبية'}
+                  {activePortal === 'pharmacist' 
+                    ? t('portal.pharmacist', 'مستودع الصيدلي') 
+                    : activePortal === 'patient' 
+                      ? t('portal.patient', 'تطبيق المريض') 
+                      : activePortal === 'admin' 
+                        ? t('portal.admin', 'لوحة الإدارة') 
+                        : (isRtl ? 'المنصة الطبية' : 'Medical Platform')}
                 </span>
               </h1>
-              <p className="text-[10.5px] text-slate-400 font-medium">منظومة الرعاية الصيدلانية الموحدة والخدمات الطبية بمصر</p>
+              <p className="text-[10.5px] text-slate-400 font-medium">
+                {isRtl ? "منظومة الرعاية الصيدلانية الموحدة والخدمات الطبية بمصر" : "Unified Clinical Pharmacy & Medical Care System in Egypt"}
+              </p>
             </div>
           </div>
 
           {/* User Status / Portal Actions */}
-          <div className="flex items-center space-x-3 space-x-reverse text-xs">
+          <div className="flex items-center gap-3 text-xs">
             
+            {/* Language Switcher */}
+            <LanguageSwitcher />
+
             {/* Active User Indicator */}
             {activePortal === 'pharmacist' && pharmacistUser && (
-              <div className="hidden sm:flex items-center space-x-2 space-x-reverse bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-2xl">
+              <div className="hidden sm:flex items-center gap-2 bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-2xl">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span className="font-bold text-slate-200">د. {pharmacistUser.fullName || "الصيدلي الإكلينيكي"}</span>
+                <span className="font-bold text-slate-200">{isRtl ? `د. ${pharmacistUser.fullName || "الصيدلي الإكلينيكي"}` : `Dr. ${pharmacistUser.fullName || "Clinical Pharmacist"}`}</span>
                 <span className="text-[10px] text-slate-400">({pharmacistUser.licenseNumber || "LIC-12345"})</span>
               </div>
             )}
 
             {activePortal === 'patient' && patientUser && (
-              <div className="hidden sm:flex items-center space-x-2 space-x-reverse bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-2xl">
+              <div className="hidden sm:flex items-center gap-2 bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-2xl">
                 <span className="w-2 h-2 rounded-full bg-teal-400 animate-pulse"></span>
-                <span className="font-bold text-slate-200">المريض: {patientUser.fullName || "أحمد علي"}</span>
+                <span className="font-bold text-slate-200">{isRtl ? `المريض: ${patientUser.fullName || "أحمد علي"}` : `Patient: ${patientUser.fullName || "Ahmed Ali"}`}</span>
               </div>
             )}
 
             {activePortal === 'admin' && (
-              <div className="flex items-center space-x-2 space-x-reverse bg-indigo-950/80 border border-indigo-700/60 text-indigo-300 px-3 py-1.5 rounded-2xl font-bold">
+              <div className="flex items-center gap-2 bg-indigo-950/80 border border-indigo-700/60 text-indigo-300 px-3 py-1.5 rounded-2xl font-bold">
                 <ShieldCheck className="w-4 h-4 text-indigo-400" />
-                <span>جلسة مدير النظام نشطة</span>
+                <span>{isRtl ? "جلسة مدير النظام نشطة" : "Active Admin Session"}</span>
               </div>
             )}
 
             {/* Portal Navigation & Actions */}
-            <div className="flex items-center space-x-2 space-x-reverse">
+            <div className="flex items-center gap-2">
               {activePortal !== 'gateway' && (
                 <button
                   onClick={() => setActivePortal('gateway')}
-                  className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold px-3 py-1.5 rounded-xl border border-slate-700 transition-all flex items-center space-x-1 space-x-reverse text-xs cursor-pointer focus:outline-none"
+                  className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold px-3 py-1.5 rounded-xl border border-slate-700 transition-all flex items-center gap-1 text-xs cursor-pointer focus:outline-none"
                 >
-                  <ArrowRight className="w-3.5 h-3.5" />
-                  <span>تبديل البوابة</span>
+                  <ArrowRight className={`w-3.5 h-3.5 ${isRtl ? '' : 'rotate-180'}`} />
+                  <span>{t('portal.switch', 'تبديل البوابة')}</span>
                 </button>
               )}
 
@@ -228,22 +243,22 @@ export default function App() {
                       setShowAdminPinModal(true);
                     }
                   }}
-                  className="bg-indigo-950/60 hover:bg-indigo-900 border border-indigo-800/50 text-indigo-300 font-bold px-3 py-1.5 rounded-xl transition-all flex items-center space-x-1.5 space-x-reverse text-xs cursor-pointer focus:outline-none"
-                  title="دخول لوحة تحكم الإدارة المركزية (محمية بكلمة سر الأدمن)"
+                  className="bg-indigo-950/60 hover:bg-indigo-900 border border-indigo-800/50 text-indigo-300 font-bold px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 text-xs cursor-pointer focus:outline-none"
+                  title={isRtl ? "دخول لوحة تحكم الإدارة المركزية" : "Enter Admin Panel"}
                 >
                   <Lock className="w-3.5 h-3.5 text-indigo-400" />
-                  <span>لوحة الإدارة</span>
+                  <span>{t('portal.admin', 'لوحة الإدارة')}</span>
                 </button>
               )}
 
               {/* Optional Demo Scenarios Drawer Button */}
               <button
                 onClick={() => setShowDemoDrawer(!showDemoDrawer)}
-                className="bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold px-2.5 py-1.5 rounded-xl border border-amber-500/30 transition-all flex items-center space-x-1 space-x-reverse text-xs cursor-pointer focus:outline-none"
-                title="تفعييل لوحة الحالات الاختبارية التجريبية"
+                className="bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold px-2.5 py-1.5 rounded-xl border border-amber-500/30 transition-all flex items-center gap-1 text-xs cursor-pointer focus:outline-none"
+                title={isRtl ? "تفعيل لوحة الحالات الاختبارية التجريبية" : "Toggle test cases panel"}
               >
                 <Sliders className="w-3.5 h-3.5 text-amber-400" />
-                <span className="hidden md:inline">حالات الاختبار</span>
+                <span className="hidden md:inline">{isRtl ? "حالات الاختبار" : "Test Cases"}</span>
               </button>
             </div>
 
@@ -338,7 +353,7 @@ export default function App() {
                   </div>
                   <div>
                     <span className="text-[10px] bg-teal-50 text-teal-800 border border-teal-200 px-2 py-0.5 rounded font-bold">بوابة الجمهور والمرضى</span>
-                    <h3 className="text-lg font-black text-slate-850 mt-1">تطبيق المريض (Mobile App)</h3>
+                    <h3 className="text-lg font-black text-slate-850 mt-1 text-center">تطبيق المريض (Mobile App)</h3>
                   </div>
                   <p className="text-xs text-slate-500 leading-relaxed">
                     من خلال هذه البوابة يمكن للمريض تسجيل حساب جديد، إضافة المرافقين، حجز استشارات OTC، تتبع منبهات الأدوية، واستلام التقارير الطبية المعتمدة.
@@ -370,7 +385,7 @@ export default function App() {
                   </div>
                   <div>
                     <span className="text-[10px] bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded font-bold">مختصي الصيدلة الإكلينيكية</span>
-                    <h3 className="text-lg font-black text-slate-850 mt-1">مستودع الصيدلي (Workspace)</h3>
+                    <h3 className="text-lg font-black text-slate-850 mt-1 text-center">مستودع الصيدلي (Workspace)</h3>
                   </div>
                   <p className="text-xs text-slate-500 leading-relaxed">
                     مساحة عمل الصيدلي لفحص الروشتات وطابور الاستشارات المباشرة، إجراء الفحص الآلي للتعارضات الدوائية والحساسية بالذكاء الاصطناعي، وتوثيق التقارير.
@@ -402,7 +417,7 @@ export default function App() {
                   </div>
                   <div>
                     <span className="text-[10px] bg-indigo-50 text-indigo-800 border border-indigo-200 px-2 py-0.5 rounded font-bold">الإدارة والمالية</span>
-                    <h3 className="text-lg font-black text-slate-850 mt-1">لوحة التحكم (Admin Panel)</h3>
+                    <h3 className="text-lg font-black text-slate-850 mt-1 text-center">لوحة التحكم (Admin Panel)</h3>
                   </div>
                   <p className="text-xs text-slate-500 leading-relaxed">
                     مخصصة لمالك المنصة والإدارة: متابعة الأداء المالي، تقارير العمولات، اعتماد تراخيص الصيادلة الجدد، وتعديل أسعار الخدمات والحملات التسويقية.
