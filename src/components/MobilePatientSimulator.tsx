@@ -24,6 +24,7 @@ import RecentNotifications from "./RecentNotifications";
 import ProfilePhotoUploader from "./ProfilePhotoUploader";
 import PharmacistProfileModal from "./PharmacistProfileModal";
 import PharmacistsDirectory from "./PharmacistsDirectory";
+import GuidedPrescriptionUpload from "./GuidedPrescriptionUpload";
 import { Fingerprint, Lock, UserCheck } from "lucide-react";
 import { registerPushNotifications, triggerLocalNativeNotification } from "../lib/pushNotifications";
 import { useLanguage, LanguageSwitcher } from "../LanguageContext";
@@ -2178,6 +2179,14 @@ export default function MobilePatientSimulator({
                                 </button>
                               </div>
                             )}
+
+                            {/* Service Rating Trigger */}
+                            <button
+                              onClick={() => handleOpenPharmacistProfile(item.pharmacistLicense || "LIC-12345")}
+                              className="w-full py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200/70 rounded-lg text-[10.5px] font-bold flex items-center justify-center gap-1.5 transition-all shadow-2xs cursor-pointer mt-1"
+                            >
+                              <span>⭐ تقييم استشارة الصيدلي وتوثيق تجربتك</span>
+                            </button>
                           </div>
                         ))
                       ) : (
@@ -2279,13 +2288,21 @@ export default function MobilePatientSimulator({
                       </h4>
                       {reports && reports.length > 0 ? (
                         reports.map((rep: any, idx: number) => (
-                          <div key={idx} className="p-3 bg-teal-50/50 border border-teal-200 rounded-xl space-y-1.5 text-xs">
+                          <div key={idx} className="p-3 bg-teal-50/50 border border-teal-200 rounded-xl space-y-2 text-xs">
                             <div className="flex justify-between items-center">
                               <span className="font-bold text-teal-900">{rep.reportType || "تقرير استشارة صيدلانية"}</span>
                               <span className="text-[9.5px] font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">موقع إلكترونياً ✓</span>
                             </div>
                             <p className="text-[10.5px] text-slate-700">{rep.summary || rep.pharmacistNotes || "تم مراجعة الروشتة وتدقيق السلامة."}</p>
-                            <p className="text-[9.5px] text-slate-500 font-mono">توقيع الصيدلي: {rep.pharmacistName || "د. أميرة أحمد"}</p>
+                            <div className="flex justify-between items-center pt-1 border-t border-teal-200/50">
+                              <p className="text-[9.5px] text-slate-500 font-mono">توقيع الصيدلي: {rep.pharmacistName || "د. أميرة أحمد"}</p>
+                              <button
+                                onClick={() => handleOpenPharmacistProfile(rep.pharmacistLicense || "LIC-12345")}
+                                className="px-2 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-[9.5px] rounded-lg transition-all flex items-center gap-1 cursor-pointer"
+                              >
+                                <span>⭐ تقييم الخدمة</span>
+                              </button>
+                            </div>
                           </div>
                         ))
                       ) : (
@@ -2390,25 +2407,24 @@ export default function MobilePatientSimulator({
               {/* SECONDARY SCREEN: SCANNER */}
               {screen === 'scanner' && (
                 <div className="space-y-3 animate-in fade-in duration-200">
-                  <div className="flex justify-between items-center">
+                  <div className="flex justify-between items-center mb-1">
                     <button onClick={() => setScreen('services')} className="px-3 py-1 bg-slate-200 text-slate-800 rounded-lg text-xs font-bold flex items-center gap-1">
                       <ArrowLeft className="w-3.5 h-3.5" /> العودة للخدمات
                     </button>
-                    <h3 className="text-xs font-bold text-slate-900">ماسح الروشتة الضوئي</h3>
+                    <h3 className="text-xs font-bold text-slate-900">ماسح الروشتة الموجه</h3>
                   </div>
-                  <div className="bg-white p-4 rounded-2xl border border-slate-200 text-center space-y-3">
-                    <Camera className="w-10 h-10 mx-auto text-teal-600 animate-pulse" />
-                    <p className="text-xs font-bold text-slate-800">التقط صورة الروشتة أو ارفع ملف PDF</p>
-                    <button
-                      onClick={() => {
-                        setScannedImage("https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?q=80&w=300");
-                        alert("تم التقاط صورة الروشتة بنجاح!");
-                      }}
-                      className="px-4 py-2 bg-teal-600 text-white rounded-xl text-xs font-bold shadow-sm cursor-pointer"
-                    >
-                      التقاط بالكميرا الآن
-                    </button>
-                  </div>
+                  <GuidedPrescriptionUpload
+                    patient={activePatient}
+                    onUploadComplete={(data) => {
+                      setScannedImage(data.compressedImage);
+                      alert(`تم رفع وتدقيق الروشتة بنجاح! 
+• الحجم الأولي: ${data.originalSizeKb} KB
+• الحجم المضغوط: ${data.compressedSizeKb} KB
+• تم التدقيق الأولي بالذكاء الاصطناعي بنجاح والإحالة للصيدلي الإكلينيكي د. أميرة أحمد.`);
+                      setScreen('agenda');
+                    }}
+                    onCancel={() => setScreen('services')}
+                  />
                 </div>
               )}
 

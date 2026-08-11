@@ -239,6 +239,7 @@ export default function PharmacistWorkspace({
   const [showPerformanceModal, setShowPerformanceModal] = useState(false);
   const [performanceTimeframe, setPerformanceTimeframe] = useState<'daily' | 'weekly' | 'monthly'>('monthly');
   const [allReports, setAllReports] = useState<any[]>([]);
+  const [pharmacistProfileData, setPharmacistProfileData] = useState<PharmacistProfile | null>(null);
   const [isLoadingPerformance, setIsLoadingPerformance] = useState(false);
 
   useEffect(() => {
@@ -271,6 +272,13 @@ export default function PharmacistWorkspace({
           const data = await res.json();
           setAllReports(data || []);
         }
+
+        const lic = profileLicense || currentUser?.licenseNumber || "LIC-12345";
+        const profRes = await fetch(`/api/v1/pharmacists/profile/${lic}`);
+        if (profRes.ok) {
+          const profData = await profRes.json();
+          setPharmacistProfileData(profData);
+        }
       } catch (err) {
         console.error("Error fetching clinical reports for performance:", err);
       } finally {
@@ -281,7 +289,7 @@ export default function PharmacistWorkspace({
     if (showPerformanceModal) {
       fetchPerformanceData();
     }
-  }, [showPerformanceModal]);
+  }, [showPerformanceModal, profileLicense, currentUser?.licenseNumber]);
 
   const performanceMetrics = useMemo(() => {
     const doctorNameClean = (profileName || currentUser?.fullName || "").replace(/^د\.\s*/, "").trim().toLowerCase();
@@ -305,7 +313,33 @@ export default function PharmacistWorkspace({
       ? Math.round((responseTimes.reduce((s, v) => s + v, 0) / responseTimes.length) * 10) / 10
       : 14.5; // default/baseline mock
 
-    const satisfactionRate = 98.4; // constant or based on ratings
+    const reviewsList = pharmacistProfileData?.reviews && pharmacistProfileData.reviews.length > 0
+      ? pharmacistProfileData.reviews
+      : [
+          {
+            id: "rev-101",
+            patientName: "أسماء السيد القاضي",
+            rating: 5,
+            date: "منذ يومين",
+            comment: "دكتورة ممتازة جداً! طمأنتني بخصوص أمان الأدوية أثناء الاستشارة وشرحت الجرعة بكل دقة وحرص.",
+            serviceType: "استشارة OTC"
+          },
+          {
+            id: "rev-102",
+            patientName: "هدى فتحي بركات",
+            rating: 5,
+            date: "منذ أسبوع",
+            comment: "تدقيق سريع ومحترف للروشتة، اكتشفت تعارضاً بالجرعات ونبهت طبيبي المباشر.",
+            serviceType: "تدقيق روشتة (DUR)"
+          }
+        ];
+
+    const totalReviewsCount = reviewsList.length;
+    const avgRating = totalReviewsCount > 0
+      ? Number((reviewsList.reduce((acc, r) => acc + r.rating, 0) / totalReviewsCount).toFixed(1))
+      : (pharmacistProfileData?.rating || 4.9);
+    const satisfactionRate = Math.min(100, Number(((avgRating / 5) * 100).toFixed(1)));
+
     const baselineDailyGoal = 8;
     const todayCompletedCount = myReports.filter(r => {
       const d = new Date(r.createdAt);
@@ -319,11 +353,14 @@ export default function PharmacistWorkspace({
       totalConsultationsCompleted,
       avgResponseTime,
       satisfactionRate,
+      avgRating,
+      totalReviewsCount,
+      reviewsList,
       todayCompletedCount,
       baselineDailyGoal,
       myReports
     };
-  }, [allReports, profileName, currentUser, otcCases, revisionCases, mmpCases]);
+  }, [allReports, profileName, currentUser, otcCases, revisionCases, mmpCases, pharmacistProfileData]);
 
   const performanceChartData = useMemo(() => {
     const { myReports } = performanceMetrics;
@@ -3802,12 +3839,13 @@ export default function PharmacistWorkspace({
                       <span className="text-[10px] text-slate-400 font-bold block">معدل رضا وسعادة المرضى</span>
                       <Award className="w-4 h-4 text-pink-400" />
                     </div>
-                    <div className="text-2xl font-black text-white">
-                      {(98.4).toLocaleString('ar-EG')}%
+                    <div className="text-2xl font-black text-white flex items-baseline gap-1.5">
+                      <span>{performanceMetrics.satisfactionRate.toLocaleString('ar-EG')}%</span>
+                      <span className="text-xs text-slate-400 font-bold">({performanceMetrics.totalReviewsCount} تقييم)</span>
                     </div>
-                    <div className="text-[9px] text-yellow-400 font-bold flex items-center space-x-0.5 space-x-reverse">
+                    <div className="text-[9px] text-yellow-400 font-bold flex items-center space-x-1 space-x-reverse">
                       <span>⭐⭐⭐⭐⭐</span>
-                      <span className="text-slate-400 text-[8px] mr-1">5.0 / 5.0</span>
+                      <span className="text-yellow-300 font-extrabold mr-1">{performanceMetrics.avgRating} / 5.0</span>
                     </div>
                   </div>
 
@@ -3963,6 +4001,51 @@ export default function PharmacistWorkspace({
                           />
                         </AreaChart>
                       </ResponsiveContainer>
+                    )}
+                  </div>
+                </div>
+
+                {/* Patient Reviews & Feedback Section */}
+                <div className="bg-slate-950/40 p-4 rounded-2xl border border-slate-800 space-y-3 text-right">
+                  <div className="flex justify-between items-center border-b border-slate-800 pb-2.5">
+                    <div className="flex items-center space-x-2 space-x-reverse">
+                      <Award className="w-4 h-4 text-yellow-400" />
+                      <span className="text-xs font-bold text-slate-200">سجل آراء وتقييمات المرضى المباشرة:</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 bg-yellow-950/40 border border-yellow-800/40 px-3 py-1 rounded-xl text-[10.5px] font-bold text-yellow-300">
+                      <span>متوسط التقييم:</span>
+                      <span className="text-white font-extrabold font-mono text-xs">{performanceMetrics.avgRating}</span>
+                      <span>⭐</span>
+                      <span className="text-slate-400 text-[9.5px]">({performanceMetrics.totalReviewsCount} تقييمات)</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1">
+                    {performanceMetrics.reviewsList && performanceMetrics.reviewsList.length > 0 ? (
+                      performanceMetrics.reviewsList.map((rev: any, idx: number) => (
+                        <div key={idx} className="bg-slate-900/80 p-3 rounded-xl border border-slate-800 space-y-1.5 hover:border-slate-700 transition-all">
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-slate-100">{rev.patientName}</span>
+                              <span className="text-[9.5px] font-bold px-2 py-0.5 rounded-full bg-teal-950/60 text-teal-300 border border-teal-800/50">
+                                {rev.serviceType || "استشارة دوائية"}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1 text-[10px]">
+                              <span className="text-yellow-400">{"★".repeat(Math.floor(rev.rating || 5))}</span>
+                              <span className="text-slate-300 font-mono font-bold">({rev.rating})</span>
+                              <span className="text-[9px] text-slate-500 mr-1">• {rev.date}</span>
+                            </div>
+                          </div>
+                          {rev.comment && (
+                            <p className="text-[11px] text-slate-300 leading-relaxed font-sans bg-slate-950/40 p-2 rounded-lg border border-slate-800/50">
+                              "{rev.comment}"
+                            </p>
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-xs text-slate-500 italic text-center py-4">لا توجد تقييمات مسجلة بعد.</p>
                     )}
                   </div>
                 </div>
