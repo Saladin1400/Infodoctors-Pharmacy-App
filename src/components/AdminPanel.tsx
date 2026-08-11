@@ -8,7 +8,8 @@ import {
   BarChart3, Settings, ShieldCheck, DollarSign, Clock, Users, CalendarCheck, 
   ArrowUpRight, Sparkles, RefreshCw, Send, ListFilter, Sliders, ToggleLeft,
   MapPin, CalendarDays, Award, CheckCircle2, Zap, Power, Briefcase, Activity,
-  TrendingUp, Phone, ExternalLink, ShieldAlert, FileText, Layers
+  TrendingUp, Phone, ExternalLink, ShieldAlert, FileText, Layers,
+  UserX, UserCheck, RotateCcw, Trash2, Search, Lock
 } from "lucide-react";
 import { 
   ResponsiveContainer, 
@@ -28,7 +29,7 @@ export default function AdminPanel() {
   const [metrics, setMetrics] = useState<OperationalMetrics | null>(null);
 
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'reports' | 'pharmacists' | 'pricing' | 'logs'>('reports');
+  const [activeTab, setActiveTab] = useState<'users' | 'cases' | 'revenue' | 'pharmacists' | 'quality'>('users');
   
   // Custom campaign variables
   const [otcPrice, setOtcPrice] = useState("250");
@@ -37,6 +38,12 @@ export default function AdminPanel() {
   const [discountPercent, setDiscountPercent] = useState("10");
 
   const [isUpdatingCampaign, setIsUpdatingCampaign] = useState(false);
+
+  // User Accounts Management states
+  const [usersList, setUsersList] = useState<any[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [userSearchQuery, setUserSearchQuery] = useState("");
+  const [userRoleFilter, setUserRoleFilter] = useState<'ALL' | 'patient' | 'pharmacist' | 'admin'>('ALL');
 
   // Admin Financial Report & Commissions states
   const [financeTransactions, setFinanceTransactions] = useState<any[]>([]);
@@ -90,6 +97,81 @@ export default function AdminPanel() {
     }
   };
 
+  const fetchUsers = async () => {
+    setIsLoadingUsers(true);
+    try {
+      const res = await fetch("/api/v1/users");
+      if (res.ok) {
+        const data = await res.json();
+        setUsersList(data.users || []);
+      }
+    } catch (err) {
+      console.error("Error fetching users:", err);
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  };
+
+  const handleFreezeAccount = async (userId: string, currentStatus: boolean) => {
+    try {
+      const res = await fetch(`/api/v1/users/${userId}/status`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isFrozen: !currentStatus })
+      });
+      if (res.ok) {
+        fetchUsers();
+        fetchMetrics();
+      } else {
+        const data = await res.json();
+        alert(data.error || "فشلت عملية تغيير حالة الحساب");
+      }
+    } catch (err) {
+      console.error("Error toggling freeze account:", err);
+    }
+  };
+
+  const handleDeleteAccount = async (userId: string) => {
+    if (!window.confirm("هل أنت تأكد من إرادة حذف هذا الحساب نهائياً؟ لن تتمكن من استرجاع البيانات المربوطة به.")) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/v1/users/${userId}`, {
+        method: "DELETE"
+      });
+      if (res.ok) {
+        fetchUsers();
+        fetchMetrics();
+      } else {
+        const data = await res.json();
+        alert(data.error || "فشلت عملية حذف الحساب");
+      }
+    } catch (err) {
+      console.error("Error deleting account:", err);
+    }
+  };
+
+  const handleResetAccount = async (userId: string) => {
+    if (!window.confirm("هل تريد إعادة ضبط كلمة المرور الافتراضية (123456) وإلغاء الجلسات النشطة والتجميد لهذا الحساب؟")) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/v1/users/${userId}/reset`, {
+        method: "POST"
+      });
+      if (res.ok) {
+        alert("تمت إعادة ضبط الحساب بنجاح إلى الوضع الافتراضي (كلمة المرور: 123456)");
+        fetchUsers();
+        fetchMetrics();
+      } else {
+        const data = await res.json();
+        alert(data.error || "فشلت عملية إعادة ضبط الحساب");
+      }
+    } catch (err) {
+      console.error("Error resetting account:", err);
+    }
+  };
+
   const fetchMetrics = async () => {
     setIsLoading(true);
     try {
@@ -113,12 +195,14 @@ export default function AdminPanel() {
     fetchMetrics();
     fetchFinanceData();
     fetchPharmacists();
+    fetchUsers();
   };
 
   useEffect(() => {
     fetchMetrics();
     fetchFinanceData();
     fetchPharmacists();
+    fetchUsers();
   }, []);
 
   // Sync pharmacist local toggle to prevent backend friction on simulation
@@ -195,6 +279,22 @@ export default function AdminPanel() {
       return true;
     });
   }, [pharmacists, pharmacistRegion, pharmacistDegree, pharmacistStatus]);
+
+  // Filtered users list
+  const filteredUsers = useMemo(() => {
+    return usersList.filter(user => {
+      if (userRoleFilter !== 'ALL' && user.role !== userRoleFilter) return false;
+      if (userSearchQuery.trim()) {
+        const query = userSearchQuery.toLowerCase();
+        const nameMatch = user.fullName?.toLowerCase().includes(query);
+        const emailMatch = user.email?.toLowerCase().includes(query);
+        const idMatch = user.nationalId?.includes(query);
+        const licMatch = user.licenseNumber?.includes(query);
+        if (!nameMatch && !emailMatch && !idMatch && !licMatch) return false;
+      }
+      return true;
+    });
+  }, [usersList, userRoleFilter, userSearchQuery]);
 
   // Aggregate pharmacist productivity / completions from filtered transactions
   const pharmacistProductivity = useMemo(() => {
@@ -375,8 +475,8 @@ export default function AdminPanel() {
                 ● النظام متصل بالوزارة
               </span>
             </div>
-            <h1 className="text-xl font-black text-slate-800 tracking-tight mt-1">لوحة القيادة التنفيذية والمالية للمدراء</h1>
-            <p className="text-xs text-slate-500 mt-0.5">مراقبة إنتاجية الصيادلة، تفصيل ربحية الحالات، وإدارة تسعيرة الخدمات والعروض الترويجية</p>
+            <h1 className="text-xl font-black text-slate-800 tracking-tight mt-1">لوحة الإدارة</h1>
+            <p className="text-xs text-slate-500 mt-0.5">مراقبة إنتاجية الصيادلة، تقارير الحالات والعائدات، وحكامة الحسابات والجودة</p>
           </div>
         </div>
 
@@ -392,276 +492,294 @@ export default function AdminPanel() {
         </div>
       </div>
 
-      {/* KPI Core Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        
-        {/* KPI 1: Profitability & Revenue */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm text-right relative overflow-hidden flex flex-col justify-between">
-          <div className="flex justify-between items-start">
-            <div>
-              <span className="text-[11px] text-slate-400 font-bold block">إجمالي إيرادات المنصة</span>
-              <span className="text-xl font-black text-slate-800 font-mono mt-1 block">
-                {(metrics?.totalRevenue || 1250).toLocaleString('ar-EG')} <span className="text-xs font-bold text-slate-400">ج.م</span>
-              </span>
-            </div>
-            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-100">
-              <DollarSign className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-3 pt-2.5 border-t border-slate-100 flex justify-between items-center text-[10px] text-slate-500">
-            <div>حصة الصيدلي (60%): <strong className="text-emerald-600 font-mono font-black">{((metrics?.totalRevenue || 1250) * 0.6).toLocaleString('ar-EG')}</strong></div>
-            <div className="text-slate-400">|</div>
-            <div>الإدارة (40%): <strong className="text-indigo-600 font-mono font-black">{((metrics?.totalRevenue || 1250) * 0.4).toLocaleString('ar-EG')}</strong></div>
-          </div>
-        </div>
+      {/* Main Tab Navigation bar at top */}
+      <div className="flex bg-white p-1.5 rounded-2xl border-2 border-slate-200 shadow-sm overflow-x-auto gap-1 mb-6">
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('users');
+            fetchUsers();
+          }}
+          className={`flex-1 py-3 px-3 rounded-xl text-xs font-bold transition-all text-center whitespace-nowrap focus:outline-none flex items-center justify-center space-x-2 space-x-reverse cursor-pointer ${
+            activeTab === 'users'
+              ? 'bg-indigo-600 text-white shadow-md'
+              : 'text-slate-600 hover:text-indigo-600 hover:bg-slate-50'
+          }`}
+        >
+          <Users className="w-4.5 h-4.5" />
+          <span>إدارة الحسابات</span>
+        </button>
 
-        {/* KPI 2: Productivity Index */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm text-right relative overflow-hidden flex flex-col justify-between">
-          <div className="flex justify-between items-start">
-            <div>
-              <span className="text-[11px] text-slate-400 font-bold block">مؤشر الإنتاجية السريرية</span>
-              <span className="text-xl font-black text-slate-800 font-mono mt-1 block">
-                {metrics?.totalConsultations || 8} <span className="text-xs font-bold text-slate-400">استشارة</span>
-              </span>
-            </div>
-            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl border border-indigo-100">
-              <Activity className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-3 pt-2.5 border-t border-slate-100 flex justify-between items-center text-[10px] text-slate-500">
-            <div>متوسط زمن الاستجابة: <strong className="text-slate-700 font-mono font-black">14.9 د</strong></div>
-            <div className="flex items-center space-x-1 space-x-reverse text-indigo-600 font-bold">
-              <TrendingUp className="w-3 h-3" />
-              <span>+8.2%</span>
-            </div>
-          </div>
-        </div>
+        <button
+          type="button"
+          onClick={() => setActiveTab('cases')}
+          className={`flex-1 py-3 px-3 rounded-xl text-xs font-bold transition-all text-center whitespace-nowrap focus:outline-none flex items-center justify-center space-x-2 space-x-reverse cursor-pointer ${
+            activeTab === 'cases'
+              ? 'bg-indigo-600 text-white shadow-md'
+              : 'text-slate-600 hover:text-indigo-600 hover:bg-slate-50'
+          }`}
+        >
+          <FileText className="w-4.5 h-4.5" />
+          <span>تقارير الحالات</span>
+        </button>
 
-        {/* KPI 3: Live Pharmacists Status */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm text-right relative overflow-hidden flex flex-col justify-between">
-          <div className="flex justify-between items-start">
-            <div>
-              <span className="text-[11px] text-slate-400 font-bold block">طاقم الصيادلة النشطين</span>
-              <span className="text-xl font-black text-slate-800 font-mono mt-1 block">
-                {onlinePharmacists} / {totalPharmacists} <span className="text-xs font-bold text-slate-400">نشط الآن</span>
-              </span>
-            </div>
-            <div className="p-2 bg-teal-50 text-teal-600 rounded-xl border border-teal-100">
-              <Users className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-3 pt-2.5 border-t border-slate-100 flex justify-between items-center text-[10px] text-slate-500">
-            <div className="flex items-center space-x-1 space-x-reverse">
-              <span className="w-2 h-2 bg-emerald-500 rounded-full animate-ping"></span>
-              <span>أونلاين: <strong className="text-emerald-600 font-mono">{onlinePharmacists}</strong></span>
-            </div>
-            <div className="flex items-center space-x-1 space-x-reverse">
-              <span className="w-2 h-2 bg-slate-400 rounded-full"></span>
-              <span>أوفلاين: <strong className="text-slate-500 font-mono">{offlinePharmacists}</strong></span>
-            </div>
-          </div>
-        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('revenue');
+            fetchFinanceData();
+          }}
+          className={`flex-1 py-3 px-3 rounded-xl text-xs font-bold transition-all text-center whitespace-nowrap focus:outline-none flex items-center justify-center space-x-2 space-x-reverse cursor-pointer ${
+            activeTab === 'revenue'
+              ? 'bg-indigo-600 text-white shadow-md'
+              : 'text-slate-600 hover:text-indigo-600 hover:bg-slate-50'
+          }`}
+        >
+          <TrendingUp className="w-4.5 h-4.5" />
+          <span>تقارير العائدات والأرباح</span>
+        </button>
 
-        {/* KPI 4: Clinical Safety & Interventions */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm text-right relative overflow-hidden flex flex-col justify-between">
-          <div className="flex justify-between items-start">
-            <div>
-              <span className="text-[11px] text-slate-400 font-bold block">مداخلات منقذة للحياة (DUR)</span>
-              <span className="text-xl font-black text-red-600 font-mono mt-1 block">
-                {roundedInterventionsCount} <span className="text-xs font-bold text-slate-400">مداخلة</span>
-              </span>
-            </div>
-            <div className="p-2 bg-red-50 text-red-650 rounded-xl border border-red-100">
-              <ShieldAlert className="w-5 h-5 text-red-650" />
-            </div>
-          </div>
-          <div className="mt-3 pt-2.5 border-t border-slate-100 text-[10px] text-slate-500 flex justify-between items-center">
-            <span className="text-red-700 bg-red-50 px-1.5 py-0.5 rounded border border-red-100 font-bold">منع الحساسية المفرطة</span>
-            <span className="text-slate-400">بنسبة نجاح 100%</span>
-          </div>
-        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('pharmacists');
+            fetchPharmacists();
+          }}
+          className={`flex-1 py-3 px-3 rounded-xl text-xs font-bold transition-all text-center whitespace-nowrap focus:outline-none flex items-center justify-center space-x-2 space-x-reverse cursor-pointer ${
+            activeTab === 'pharmacists'
+              ? 'bg-indigo-600 text-white shadow-md'
+              : 'text-slate-600 hover:text-indigo-600 hover:bg-slate-50'
+          }`}
+        >
+          <Award className="w-4.5 h-4.5" />
+          <span>تقارير أداء الصيادلة</span>
+        </button>
 
+        <button
+          type="button"
+          onClick={() => setActiveTab('quality')}
+          className={`flex-1 py-3 px-3 rounded-xl text-xs font-bold transition-all text-center whitespace-nowrap focus:outline-none flex items-center justify-center space-x-2 space-x-reverse cursor-pointer ${
+            activeTab === 'quality'
+              ? 'bg-indigo-600 text-white shadow-md'
+              : 'text-slate-600 hover:text-indigo-600 hover:bg-slate-50'
+          }`}
+        >
+          <ShieldCheck className="w-4.5 h-4.5" />
+          <span>تقارير الجودة</span>
+        </button>
       </div>
 
-      {/* Main Container Divided into two areas: Controls (Left) and Content Tabs (Right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        
-        {/* LEFT 3 COLS: Pricing and Campaign Controller Panel */}
-        <div className="lg:col-span-3 space-y-4">
-          
-          {/* Pricing Control Form */}
-          <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm text-right">
-            <div className="border-b border-slate-100 pb-3 mb-4">
-              <h3 className="font-extrabold text-slate-800 text-sm flex items-center space-x-2 space-x-reverse">
-                <Sliders className="w-4.5 h-4.5 text-indigo-600" />
-                <span>لوحة التحكم بتسعيرة الخدمات</span>
-              </h3>
-              <p className="text-[10px] text-slate-400 mt-1 leading-snug">تحكم لحظي في أسعار عيادات الرعاية الصيدلية ونسب خصم الحملات الفعالة للمرضى</p>
+      {/* TAB CONTENT AREA - Renders ONLY elements for the selected tab */}
+      <div className="flex-1 space-y-6">
+
+        {/* 1. TAB: إدارة الحسابات */}
+        {activeTab === 'users' && (
+          <div className="space-y-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm space-y-4">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 border-b border-slate-100 pb-4">
+                <div>
+                  <h4 className="text-sm font-black text-slate-800 flex items-center gap-2">
+                    <Users className="w-4 h-4 text-indigo-600" />
+                    إدارة وحكامة حسابات النظام المركزية
+                  </h4>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    التحكم الكامل في تجميد، حذف وإعادة ضبط حسابات المرضى والصيادلة لمنع الانتهاكات والوصول غير المصرح به
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="bg-indigo-50 text-indigo-700 font-mono text-xs font-bold px-3 py-1 rounded-xl border border-indigo-100">
+                    إجمالي الحسابات: {usersList.length}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={fetchUsers}
+                    className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-all cursor-pointer"
+                    title="تحديث القائمة"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${isLoadingUsers ? 'animate-spin text-indigo-600' : ''}`} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Filters & Search */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="relative md:col-span-2">
+                  <Search className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
+                  <input
+                    type="text"
+                    value={userSearchQuery}
+                    onChange={(e) => setUserSearchQuery(e.target.value)}
+                    placeholder="البحث بالاسم، البريد الإلكتروني، الرقم القومي أو رقم الترخيص..."
+                    className="w-full pl-3 pr-9 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 transition-all text-right"
+                  />
+                </div>
+
+                <div>
+                  <select
+                    value={userRoleFilter}
+                    onChange={(e) => setUserRoleFilter(e.target.value as any)}
+                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-indigo-500 transition-all text-right font-medium"
+                  >
+                    <option value="ALL">جميع الأدوار والصفات</option>
+                    <option value="patient">حسابات المرضى فقط (Patient)</option>
+                    <option value="pharmacist">حسابات الصيادلة فقط (Pharmacist)</option>
+                    <option value="admin">حسابات الأدمن فقط (Admin)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Users List Grid */}
+              <div className="space-y-3 pt-2">
+                {isLoadingUsers ? (
+                  <div className="text-center py-12 text-slate-400 text-xs font-medium">
+                    جاري تحميل بيانات الحسابات من قاعدة البيانات...
+                  </div>
+                ) : filteredUsers.length === 0 ? (
+                  <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-slate-400">
+                    <p className="text-xs font-bold">لا يوجد أي مستخدمين يطابقون معايير البحث والفرز.</p>
+                    <p className="text-[10px] text-slate-400 mt-1">تأكد من عدم وجود أخطاء إملائية أو جرب مسح حقل البحث.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-3">
+                    {filteredUsers.map((usr) => {
+                      const isFrozen = !!usr.isFrozen;
+                      return (
+                        <div 
+                          key={usr.id} 
+                          className={`p-4 rounded-2xl border transition-all flex flex-col md:flex-row justify-between items-start md:items-center gap-4 ${
+                            isFrozen 
+                              ? 'bg-amber-50/60 border-amber-300/80 shadow-sm' 
+                              : 'bg-white border-slate-200 hover:border-indigo-200 shadow-sm'
+                          }`}
+                        >
+                          {/* User details */}
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <h5 className="text-xs font-black text-slate-800">{usr.fullName || "مستخدم بدون اسم"}</h5>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                usr.role === 'pharmacist' 
+                                  ? 'bg-teal-100 text-teal-800 border border-teal-200' 
+                                  : usr.role === 'admin'
+                                  ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                                  : 'bg-blue-100 text-blue-800 border border-blue-200'
+                              }`}>
+                                {usr.role === 'pharmacist' ? 'صيدلي إكلينيكي' : usr.role === 'admin' ? 'أدمن النظام' : 'مريض / جمهور'}
+                              </span>
+
+                              {isFrozen && (
+                                <span className="bg-amber-500 text-white text-[9.5px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
+                                  <Lock className="w-3 h-3" />
+                                  حساب مجمد ❄️
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-500 font-mono">
+                              <span>📧 {usr.email}</span>
+                              {usr.nationalId && <span>🆔 قومي: {usr.nationalId}</span>}
+                              {usr.licenseNumber && <span>🪪 ترخيص: {usr.licenseNumber}</span>}
+                            </div>
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="flex items-center gap-2 self-end md:self-auto shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleFreezeAccount(usr.id, isFrozen)}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                                isFrozen
+                                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm'
+                                  : 'bg-amber-500 hover:bg-amber-600 text-white shadow-sm'
+                              }`}
+                              title={isFrozen ? 'إلغاء تجميد الحساب وإعادة التفعيل' : 'تجميد الحساب لمنع الدخول والحجز'}
+                            >
+                              {isFrozen ? (
+                                <>
+                                  <UserCheck className="w-3.5 h-3.5" />
+                                  <span>إلغاء التجميد</span>
+                                </>
+                              ) : (
+                                <>
+                                  <UserX className="w-3.5 h-3.5" />
+                                  <span>تجميد الحساب</span>
+                                </>
+                              )}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleResetAccount(usr.id)}
+                              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border border-slate-200"
+                              title="إعادة ضبط كلمة المرور إلى 123456 وإنهاء كافة الجلسات"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5 text-indigo-600" />
+                              <span>إعادة ضبط</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteAccount(usr.id)}
+                              className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl transition-all cursor-pointer border border-rose-200"
+                              title="حذف الحساب نهائياً من قاعدة البيانات"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 2. TAB: تقارير الحالات */}
+        {activeTab === 'cases' && (
+          <div className="space-y-5 animate-in fade-in duration-200">
+            {/* KPI Summary Row for Cases */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm text-right flex justify-between items-center">
+                <div>
+                  <span className="text-[11px] text-slate-400 font-bold block">إجمالي استشارات النظام</span>
+                  <span className="text-xl font-black text-slate-800 font-mono mt-1 block">
+                    {metrics?.totalConsultations || 8} <span className="text-xs font-bold text-slate-400">استشارة</span>
+                  </span>
+                </div>
+                <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl border border-indigo-100">
+                  <Activity className="w-6 h-6" />
+                </div>
+              </div>
+
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm text-right flex justify-between items-center">
+                <div>
+                  <span className="text-[11px] text-slate-400 font-bold block">الحالات المصفاة بالفلاتر</span>
+                  <span className="text-xl font-black text-indigo-600 font-mono mt-1 block">
+                    {filteredTransactions.length} <span className="text-xs font-bold text-slate-400">حالة</span>
+                  </span>
+                </div>
+                <div className="p-3 bg-teal-50 text-teal-600 rounded-2xl border border-teal-100">
+                  <FileText className="w-6 h-6" />
+                </div>
+              </div>
+
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm text-right flex justify-between items-center">
+                <div>
+                  <span className="text-[11px] text-slate-400 font-bold block">متوسط زمن استجابة الصيادلة</span>
+                  <span className="text-xl font-black text-emerald-600 font-mono mt-1 block">
+                    14.9 <span className="text-xs font-bold text-slate-400">دقيقة</span>
+                  </span>
+                </div>
+                <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl border border-emerald-100">
+                  <Clock className="w-6 h-6" />
+                </div>
+              </div>
             </div>
 
-            <form onSubmit={handleUpdateCampaign} className="space-y-3.5">
-              {/* OTC Price */}
-              <div className="space-y-1">
-                <div className="flex justify-between text-[11px] font-bold">
-                  <span className="text-slate-600">استشارة OTC العادية:</span>
-                  <span className="text-indigo-650 font-mono">{otcPrice} ج.م</span>
-                </div>
-                <input 
-                  type="range" 
-                  min="50" 
-                  max="1000" 
-                  step="10"
-                  value={otcPrice}
-                  onChange={(e) => setOtcPrice(e.target.value)}
-                  className="w-full h-1 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                />
-              </div>
-
-              {/* DUR Revision Price */}
-              <div className="space-y-1">
-                <div className="flex justify-between text-[11px] font-bold">
-                  <span className="text-slate-600">مراجعة الروشتات (DUR):</span>
-                  <span className="text-indigo-650 font-mono">{revisionPrice} ج.م</span>
-                </div>
-                <input 
-                  type="range" 
-                  min="50" 
-                  max="1000" 
-                  step="10"
-                  value={revisionPrice}
-                  onChange={(e) => setRevisionPrice(e.target.value)}
-                  className="w-full h-1 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                />
-              </div>
-
-              {/* MMP Price */}
-              <div className="space-y-1">
-                <div className="flex justify-between text-[11px] font-bold">
-                  <span className="text-slate-600">خطة إدارة الأدوية (MMP):</span>
-                  <span className="text-indigo-650 font-mono">{mgmtPrice} ...ج.م</span>
-                </div>
-                <input 
-                  type="range" 
-                  min="100" 
-                  max="2000" 
-                  step="20"
-                  value={mgmtPrice}
-                  onChange={(e) => setMgmtPrice(e.target.value)}
-                  className="w-full h-1 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                />
-              </div>
-
-              {/* Active Campaign Discount */}
-              <div className="space-y-1 bg-indigo-50/50 p-2.5 rounded-xl border border-indigo-100">
-                <div className="flex justify-between text-[11px] font-bold">
-                  <span className="text-indigo-800 flex items-center space-x-1 space-x-reverse">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>خصم حملات التسويق الفعالة:</span>
-                  </span>
-                  <span className="text-indigo-950 font-mono">{discountPercent}%</span>
-                </div>
-                <input 
-                  type="range" 
-                  min="0" 
-                  max="50" 
-                  step="5"
-                  value={discountPercent}
-                  onChange={(e) => setDiscountPercent(e.target.value)}
-                  className="w-full h-1 bg-indigo-100 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                />
-              </div>
-
-              {/* Financial Simulator breakdown on input */}
-              <div className="text-[10px] bg-slate-50 p-2.5 rounded-xl text-slate-500 space-y-1 leading-normal border border-slate-150">
-                <span className="font-bold text-slate-700 block text-[10.5px]">💡 محاكاة الحصص والأرباح:</span>
-                <div>استشارة الـ OTC بعد خصم {discountPercent}%:</div>
-                <div className="font-bold text-indigo-700 font-mono">
-                  {Math.round(Number(otcPrice) * (1 - Number(discountPercent) / 100))} ج.م مدفوع
-                </div>
-                <div className="grid grid-cols-2 gap-1 pt-1 border-t border-slate-200 mt-1">
-                  <div>الصيدلي (60%): <strong className="text-emerald-600 font-mono">{Math.round(Number(otcPrice) * (1 - Number(discountPercent) / 100) * 0.6)} ج.م</strong></div>
-                  <div>الإدارة (40%): <strong className="text-slate-700 font-mono">{Math.round(Number(otcPrice) * (1 - Number(discountPercent) / 100) * 0.4)} ج.م</strong></div>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={isUpdatingCampaign}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-2.5 rounded-xl font-bold transition-all shadow-md flex items-center justify-center space-x-1.5 space-x-reverse mt-3 cursor-pointer"
-              >
-                {isUpdatingCampaign ? (
-                  <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>تحديث البيانات...</span>
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-3.5 h-3.5" />
-                    <span>حفظ وتفعيل التسعيرة</span>
-                  </>
-                )}
-              </button>
-            </form>
-          </div>
-
-          {/* Sandbox Help Panel */}
-          <div className="bg-slate-900 text-slate-300 p-4 rounded-2xl border border-slate-800 text-xs text-right leading-normal space-y-2">
-            <h4 className="font-bold text-[12px] text-white flex items-center space-x-1.5 space-x-reverse border-b border-slate-800 pb-1.5">
-              <Zap className="w-4 h-4 text-teal-400" />
-              <span>دليل المطور والتفتيش السريع</span>
-            </h4>
-            <p>1. استخدم <strong>محاكي المريض (Mobile Patient App)</strong> لحجز استشارة ودفعها.</p>
-            <p>2. ستظهر الحالات وتنعكس المعاملات مباشرة داخل تبويب <strong>"تقرير وتقييم الحالات"</strong>.</p>
-            <p>3. يمكنك تغيير حالة أي صيدلي (متصل/منفصل) بالضغط على زر الحالة بتبويب <strong>"الصيادلة النشطين"</strong> لتجربة أدوات الفرز الإدارية.</p>
-          </div>
-
-        </div>
-
-        {/* RIGHT 9 COLS: Operational & Analytical workspace tabs */}
-        <div className="lg:col-span-9 flex flex-col space-y-4">
-          
-          {/* Tab Navigation buttons */}
-          <div className="flex bg-white p-1 rounded-2xl border border-slate-200 shadow-sm overflow-x-auto gap-1">
-            <button
-              onClick={() => setActiveTab('reports')}
-              className={`flex-1 py-3 px-4 rounded-xl text-xs font-bold transition-all text-center whitespace-nowrap focus:outline-none flex items-center justify-center space-x-2 space-x-reverse cursor-pointer ${
-                activeTab === 'reports'
-                  ? 'bg-indigo-600 text-white shadow-md'
-                  : 'text-slate-600 hover:text-indigo-600 hover:bg-slate-50'
-              }`}
-            >
-              <BarChart3 className="w-4.5 h-4.5" />
-              <span>📊 تقارير وتقييم الحالات والربحية</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('pharmacists')}
-              className={`flex-1 py-3 px-4 rounded-xl text-xs font-bold transition-all text-center whitespace-nowrap focus:outline-none flex items-center justify-center space-x-2 space-x-reverse cursor-pointer ${
-                activeTab === 'pharmacists'
-                  ? 'bg-indigo-600 text-white shadow-md'
-                  : 'text-slate-600 hover:text-indigo-600 hover:bg-slate-50'
-              }`}
-            >
-              <Users className="w-4.5 h-4.5" />
-              <span>🥼 دليل وتتبع الصيادلة النشطين</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('logs')}
-              className={`flex-1 py-3 px-4 rounded-xl text-xs font-bold transition-all text-center whitespace-nowrap focus:outline-none flex items-center justify-center space-x-2 space-x-reverse cursor-pointer ${
-                activeTab === 'logs'
-                  ? 'bg-indigo-600 text-white shadow-md'
-                  : 'text-slate-600 hover:text-indigo-600 hover:bg-slate-50'
-              }`}
-            >
-              <ShieldCheck className="w-4.5 h-4.5" />
-              <span>🛡️ سجلات التفتيش والامتثال (EDA)</span>
-            </button>
-          </div>
-
-          {/* TAB 1: REPORTS & COMMISSIONS */}
-          {activeTab === 'reports' && (
             <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm space-y-5">
-              
-              {/* Report Header & Filter panel */}
+              {/* Filter Panel */}
               <div className="bg-slate-900 text-white rounded-2xl p-4 space-y-4">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
                   <div className="flex items-center space-x-2 space-x-reverse">
@@ -669,7 +787,6 @@ export default function AdminPanel() {
                     <h3 className="font-extrabold text-xs">محددات تصفية الحالات والتقارير</h3>
                   </div>
                   
-                  {/* Select timeframe */}
                   <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800">
                     {([
                       { key: 'daily', label: 'اليومي' },
@@ -693,10 +810,7 @@ export default function AdminPanel() {
                   </div>
                 </div>
 
-                {/* Grid Selectors */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-                  
-                  {/* Region Select */}
                   <div className="space-y-1">
                     <label className="text-slate-400 block font-bold text-[10.5px]">حسب المنطقة الجغرافية (المحافظة):</label>
                     <select
@@ -711,7 +825,6 @@ export default function AdminPanel() {
                     </select>
                   </div>
 
-                  {/* Specialty Select */}
                   <div className="space-y-1">
                     <label className="text-slate-400 block font-bold text-[10.5px]">حسب التخصص السريري:</label>
                     <select
@@ -726,7 +839,6 @@ export default function AdminPanel() {
                     </select>
                   </div>
 
-                  {/* Case Type Select */}
                   <div className="space-y-1">
                     <label className="text-slate-400 block font-bold text-[10.5px]">حسب نوع الاستشارة:</label>
                     <select
@@ -740,204 +852,33 @@ export default function AdminPanel() {
                       <option value="MMP">خطة إدارة الدواء وصندوق الحبوب MMP</option>
                     </select>
                   </div>
-
                 </div>
 
-                {/* Custom Date Range Picker (shown when custom is selected) */}
                 {financeTimeframe === 'custom' && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-3 border-t border-slate-800/60 text-xs">
                     <div className="space-y-1">
                       <span className="text-slate-400 block font-bold">من تاريخ البدء:</span>
-                      <div className="relative">
-                        <input
-                          type="date"
-                          value={financeStartDate}
-                          onChange={(e) => setFinanceStartDate(e.target.value)}
-                          className="w-full bg-slate-950 border border-slate-800 text-slate-200 p-2 rounded-xl focus:outline-none focus:border-indigo-500 text-left font-mono"
-                        />
-                      </div>
+                      <input
+                        type="date"
+                        value={financeStartDate}
+                        onChange={(e) => setFinanceStartDate(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 text-slate-200 p-2 rounded-xl focus:outline-none focus:border-indigo-500 text-left font-mono"
+                      />
                     </div>
                     <div className="space-y-1">
                       <span className="text-slate-400 block font-bold">إلى تاريخ الانتهاء:</span>
-                      <div className="relative">
-                        <input
-                          type="date"
-                          value={financeEndDate}
-                          onChange={(e) => setFinanceEndDate(e.target.value)}
-                          className="w-full bg-slate-950 border border-slate-800 text-slate-200 p-2 rounded-xl focus:outline-none focus:border-indigo-500 text-left font-mono"
-                        />
-                      </div>
+                      <input
+                        type="date"
+                        value={financeEndDate}
+                        onChange={(e) => setFinanceEndDate(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 text-slate-200 p-2 rounded-xl focus:outline-none focus:border-indigo-500 text-left font-mono"
+                      />
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Sub-KPI summary bar based on selected filters */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-right">
-                  <span className="text-[10px] text-slate-400 block font-bold">مجموع الإيرادات للفترة</span>
-                  <span className="text-sm font-black text-slate-800 font-mono mt-0.5 block">{totalPeriodRevenue.toLocaleString('ar-EG')} ج.م</span>
-                </div>
-                <div className="bg-indigo-50/40 p-3 rounded-xl border border-indigo-100 text-right">
-                  <span className="text-[10px] text-indigo-500 block font-bold">أرباح الإدارة (40%)</span>
-                  <span className="text-sm font-black text-indigo-700 font-mono mt-0.5 block">{adminSharePeriod.toLocaleString('ar-EG')} ج.م</span>
-                </div>
-                <div className="bg-emerald-50/40 p-3 rounded-xl border border-emerald-100 text-right">
-                  <span className="text-[10px] text-emerald-600 block font-bold">حصة الصيادلة (60%)</span>
-                  <span className="text-sm font-black text-emerald-700 font-mono mt-0.5 block">{pharmacistSharePeriod.toLocaleString('ar-EG')} ج.م</span>
-                </div>
-                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-right">
-                  <span className="text-[10px] text-slate-400 block font-bold">الحالات المستوفاة المصفاة</span>
-                  <span className="text-sm font-black text-slate-800 font-mono mt-0.5 block">{filteredTransactions.length} حالة</span>
-                </div>
-              </div>
-
-              {/* Visualizations & Productivity list */}
-              <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
-                
-                {/* Visual Chart - 7 cols */}
-                <div className="xl:col-span-7 bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
-                  <div className="flex justify-between items-center">
-                    <h4 className="text-[11.5px] font-black text-slate-700 flex items-center space-x-1 space-x-reverse">
-                      <TrendingUp className="w-4 h-4 text-emerald-500" />
-                      <span>منحنى نمو الأرباح الإدارية والعمولات (60/40 Split)</span>
-                    </h4>
-                    
-                    <div className="flex bg-slate-200/60 p-0.5 rounded-lg border border-slate-300">
-                      {(['daily', 'weekly', 'monthly'] as const).map((view) => (
-                        <button
-                          key={view}
-                          type="button"
-                          onClick={() => setChartTimeframe(view)}
-                          className={`px-2 py-0.5 rounded text-[9px] font-bold transition-all cursor-pointer focus:outline-none ${
-                            chartTimeframe === view
-                              ? 'bg-indigo-600 text-white shadow-sm'
-                              : 'text-slate-500 hover:text-slate-800'
-                          }`}
-                        >
-                          {view === 'daily' ? 'يومي' : view === 'weekly' ? 'أسبوعي' : 'شهري'}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="h-[220px] w-full bg-white rounded-xl p-1 relative shadow-inner">
-                    {chartData.every(d => d["إجمالي المبيعات"] === 0) && (
-                      <div className="absolute inset-0 bg-white/90 backdrop-blur-[1px] rounded-xl flex flex-col items-center justify-center p-3 text-center z-10">
-                        <span className="text-[11px] text-indigo-600 font-bold">💡 تلميح تغذية التقارير</span>
-                        <p className="text-[9px] text-slate-500 leading-normal max-w-[240px] mt-0.5">
-                          لا توجد معاملات مالية مكتملة في هذه الفترة. جرب القيام بدفوعات تجريبية في محاكي المريض.
-                        </p>
-                      </div>
-                    )}
-                    
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart
-                        data={chartData}
-                        margin={{ top: 15, right: 10, left: -20, bottom: 5 }}
-                      >
-                        <defs>
-                          <linearGradient id="colorPharmacistLight" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
-                            <stop offset="95%" stopColor="#10b981" stopOpacity={0.05}/>
-                          </linearGradient>
-                          <linearGradient id="colorAdminLight" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.2}/>
-                            <stop offset="95%" stopColor="#4f46e5" stopOpacity={0.05}/>
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.7} />
-                        <XAxis 
-                          dataKey="name" 
-                          stroke="#64748b" 
-                          fontSize={9} 
-                          tickLine={false}
-                          axisLine={false}
-                        />
-                        <YAxis 
-                          stroke="#64748b" 
-                          fontSize={9} 
-                          tickLine={false}
-                          axisLine={false}
-                        />
-                        <Tooltip 
-                          contentStyle={{ 
-                            backgroundColor: '#1e293b', 
-                            borderColor: '#334155',
-                            borderRadius: '10px',
-                            fontSize: '10px',
-                            textAlign: 'right',
-                            color: '#fff',
-                            direction: 'rtl'
-                          }} 
-                        />
-                        <Legend 
-                          verticalAlign="top" 
-                          height={20} 
-                          iconSize={8}
-                          wrapperStyle={{ fontSize: '9px', direction: 'rtl' }}
-                        />
-                        <Area 
-                          type="monotone" 
-                          name="حصة الصيادلة (60%)"
-                          dataKey="حصة الصيادلة (60%)" 
-                          stroke="#10b981" 
-                          fillOpacity={1} 
-                          fill="url(#colorPharmacistLight)" 
-                          strokeWidth={2}
-                        />
-                        <Area 
-                          type="monotone" 
-                          name="حصة الإدارة (40%)"
-                          dataKey="حصة الإدارة (40%)" 
-                          stroke="#4f46e5" 
-                          fillOpacity={1} 
-                          fill="url(#colorAdminLight)" 
-                          strokeWidth={2}
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-
-                {/* Productivity List - 5 cols */}
-                <div className="xl:col-span-5 bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col justify-between">
-                  <div>
-                    <h4 className="text-[11.5px] font-black text-slate-700 flex items-center space-x-1.5 space-x-reverse border-b border-slate-200 pb-2 mb-2">
-                      <Award className="w-4.5 h-4.5 text-indigo-600" />
-                      <span>جدول إنتاجية وكفاءة الصيادلة النشطين</span>
-                    </h4>
-                    
-                    <div className="space-y-2 max-h-[190px] overflow-y-auto pr-1">
-                      {pharmacistProductivity.length > 0 ? (
-                        pharmacistProductivity.map((item, idx) => (
-                          <div key={idx} className="bg-white p-2.5 rounded-xl border border-slate-200 flex justify-between items-center text-xs shadow-sm">
-                            <div className="text-right">
-                              <span className="font-extrabold text-slate-800">{item.name}</span>
-                              <div className="text-[9px] text-slate-400 mt-0.5">متوسط المراجعة: <strong className="text-indigo-600">{item.avgTime} دقيقة</strong></div>
-                            </div>
-                            <div className="text-left">
-                              <span className="bg-indigo-50 text-indigo-700 font-bold px-2 py-0.5 rounded-md font-mono text-[10px] border border-indigo-100">
-                                {item.completed} استشارات
-                              </span>
-                              <div className="text-[9px] text-emerald-600 font-bold mt-0.5 font-mono">{item.revenueGenerated} ج.م</div>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-[11px] text-slate-400 text-center py-10">لا توجد سجلات إنتاجية مطابقة لمحددات الفلترة حالياً.</p>
-                      )}
-                    </div>
-                  </div>
-
-                  <p className="text-[10px] text-slate-400 leading-snug mt-2 pt-2 border-t border-slate-200">
-                    * يتم ترتيب الصيادلة تنازلياً حسب عدد المعاملات والتقارير الموقعة والمنشورة في المنظومة.
-                  </p>
-                </div>
-
-              </div>
-
-              {/* Comprehensive Cases table */}
+              {/* Comprehensive Cases Table */}
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
                   <h4 className="text-[12px] font-black text-slate-800 flex items-center space-x-1.5 space-x-reverse">
@@ -1001,121 +942,398 @@ export default function AdminPanel() {
                   </table>
                 </div>
               </div>
-
             </div>
-          )}
+          </div>
+        )}
 
-          {/* TAB 2: ACTIVE PHARMACISTS TRACKING */}
-          {activeTab === 'pharmacists' && (
-            <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm space-y-5">
-              
-              {/* Filter controls row */}
-              <div className="bg-slate-900 text-white rounded-2xl p-4 space-y-3.5">
-                <div className="flex items-center space-x-2 space-x-reverse">
-                  <ListFilter className="w-4.5 h-4.5 text-indigo-400" />
-                  <h3 className="font-extrabold text-xs">أدوات الفرز والتتبع لطاقم الصيادلة</h3>
+        {/* 3. TAB: تقارير العائدات والأرباح */}
+        {activeTab === 'revenue' && (
+          <div className="space-y-5 animate-in fade-in duration-200">
+            {/* KPI Summary Row for Revenue */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm text-right flex justify-between items-center">
+                <div>
+                  <span className="text-[11px] text-slate-400 font-bold block">إجمالي إيرادات المنصة</span>
+                  <span className="text-xl font-black text-slate-800 font-mono mt-1 block">
+                    {(metrics?.totalRevenue || 1250).toLocaleString('ar-EG')} <span className="text-xs font-bold text-slate-400">ج.م</span>
+                  </span>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-                  {/* Governorate Filter */}
-                  <div className="space-y-1">
-                    <span className="text-slate-400 block font-bold text-[10.5px]">تصفية بالمنطقة الجغرافية:</span>
-                    <select
-                      value={pharmacistRegion}
-                      onChange={(e) => setPharmacistRegion(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 text-slate-200 p-2 rounded-xl focus:outline-none text-[11px]"
-                    >
-                      <option value="All">كل المحافظات</option>
-                      {uniqueGovernorates.map(gov => (
-                        <option key={gov} value={gov}>{gov}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Degree Filter */}
-                  <div className="space-y-1">
-                    <span className="text-slate-400 block font-bold text-[10.5px]">تصفية بالدرجة العلمية الأكاديمية:</span>
-                    <select
-                      value={pharmacistDegree}
-                      onChange={(e) => setPharmacistDegree(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 text-slate-200 p-2 rounded-xl focus:outline-none text-[11px]"
-                    >
-                      <option value="All">كل الدرجات العلمية</option>
-                      <option value="junior">صيدلي ممارس (Junior)</option>
-                      <option value="Senior">صيدلي أول (Senior)</option>
-                      <option value="Specialist">أخصائي رعاية صيدلانية (Specialist)</option>
-                      <option value="consultant">استشاري دواء (Consultant)</option>
-                      <option value="prime consultant">استشاري أول دواء (Prime Consultant)</option>
-                    </select>
-                  </div>
-
-                  {/* Status Filter */}
-                  <div className="space-y-1">
-                    <span className="text-slate-400 block font-bold text-[10.5px]">حالة النشاط على المنصة:</span>
-                    <select
-                      value={pharmacistStatus}
-                      onChange={(e: any) => setPharmacistStatus(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 text-slate-200 p-2 rounded-xl focus:outline-none text-[11px]"
-                    >
-                      <option value="All">الكل (نشط وغير نشط)</option>
-                      <option value="online">متصل حالياً (Online)</option>
-                      <option value="offline">غير متصل (Offline)</option>
-                    </select>
-                  </div>
+                <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl border border-emerald-100">
+                  <DollarSign className="w-6 h-6" />
                 </div>
               </div>
 
-              {/* Stats and grid listing */}
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <h4 className="text-xs font-black text-slate-800">سجل الصيادلة المعتمدين والمطابقين للمحددات ({filteredPharmacists.length})</h4>
-                  <div className="text-[10px] text-slate-500 font-bold">
-                    إجمالي الطاقم: {totalPharmacists} صيدلي | متصلين حالياً: <span className="text-emerald-600">{onlinePharmacists}</span>
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm text-right flex justify-between items-center">
+                <div>
+                  <span className="text-[11px] text-slate-400 font-bold block">حصة الإدارة السافية (40%)</span>
+                  <span className="text-xl font-black text-indigo-600 font-mono mt-1 block">
+                    {((metrics?.totalRevenue || 1250) * 0.4).toLocaleString('ar-EG')} <span className="text-xs font-bold text-slate-400">ج.م</span>
+                  </span>
+                </div>
+                <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl border border-indigo-100">
+                  <TrendingUp className="w-6 h-6" />
+                </div>
+              </div>
+
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm text-right flex justify-between items-center">
+                <div>
+                  <span className="text-[11px] text-slate-400 font-bold block">حصة عمولات الصيادلة (60%)</span>
+                  <span className="text-xl font-black text-teal-600 font-mono mt-1 block">
+                    {((metrics?.totalRevenue || 1250) * 0.6).toLocaleString('ar-EG')} <span className="text-xs font-bold text-slate-400">ج.م</span>
+                  </span>
+                </div>
+                <div className="p-3 bg-teal-50 text-teal-600 rounded-2xl border border-teal-100">
+                  <Award className="w-6 h-6" />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              {/* Left Column: Pricing Controller */}
+              <div className="lg:col-span-5 space-y-4">
+                <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm text-right">
+                  <div className="border-b border-slate-100 pb-3 mb-4">
+                    <h3 className="font-extrabold text-slate-800 text-sm flex items-center space-x-2 space-x-reverse">
+                      <Sliders className="w-4.5 h-4.5 text-indigo-600" />
+                      <span>لوحة التحكم بتسعيرة الخدمات</span>
+                    </h3>
+                    <p className="text-[10px] text-slate-400 mt-1 leading-snug">تحكم لحظي في أسعار عيادات الرعاية الصيدلية ونسب خصم الحملات الفعالة للمرضى</p>
+                  </div>
+
+                  <form onSubmit={handleUpdateCampaign} className="space-y-3.5">
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[11px] font-bold">
+                        <span className="text-slate-600">استشارة OTC العادية:</span>
+                        <span className="text-indigo-650 font-mono">{otcPrice} ج.م</span>
+                      </div>
+                      <input 
+                        type="range" 
+                        min="50" 
+                        max="1000" 
+                        step="10"
+                        value={otcPrice}
+                        onChange={(e) => setOtcPrice(e.target.value)}
+                        className="w-full h-1 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[11px] font-bold">
+                        <span className="text-slate-600">مراجعة الروشتات (DUR):</span>
+                        <span className="text-indigo-650 font-mono">{revisionPrice} ج.م</span>
+                      </div>
+                      <input 
+                        type="range" 
+                        min="50" 
+                        max="1000" 
+                        step="10"
+                        value={revisionPrice}
+                        onChange={(e) => setRevisionPrice(e.target.value)}
+                        className="w-full h-1 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[11px] font-bold">
+                        <span className="text-slate-600">خطة إدارة الأدوية (MMP):</span>
+                        <span className="text-indigo-650 font-mono">{mgmtPrice} ج.م</span>
+                      </div>
+                      <input 
+                        type="range" 
+                        min="100" 
+                        max="2000" 
+                        step="20"
+                        value={mgmtPrice}
+                        onChange={(e) => setMgmtPrice(e.target.value)}
+                        className="w-full h-1 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                      />
+                    </div>
+
+                    <div className="space-y-1 bg-indigo-50/50 p-2.5 rounded-xl border border-indigo-100">
+                      <div className="flex justify-between text-[11px] font-bold">
+                        <span className="text-indigo-800 flex items-center space-x-1 space-x-reverse">
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>خصم حملات التسويق الفعالة:</span>
+                        </span>
+                        <span className="text-indigo-950 font-mono">{discountPercent}%</span>
+                      </div>
+                      <input 
+                        type="range" 
+                        min="0" 
+                        max="50" 
+                        step="5"
+                        value={discountPercent}
+                        onChange={(e) => setDiscountPercent(e.target.value)}
+                        className="w-full h-1 bg-indigo-100 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                      />
+                    </div>
+
+                    <div className="text-[10px] bg-slate-50 p-2.5 rounded-xl text-slate-500 space-y-1 leading-normal border border-slate-150">
+                      <span className="font-bold text-slate-700 block text-[10.5px]">💡 محاكاة الحصص والأرباح:</span>
+                      <div>استشارة الـ OTC بعد خصم {discountPercent}%:</div>
+                      <div className="font-bold text-indigo-700 font-mono">
+                        {Math.round(Number(otcPrice) * (1 - Number(discountPercent) / 100))} ج.م مدفوع
+                      </div>
+                      <div className="grid grid-cols-2 gap-1 pt-1 border-t border-slate-200 mt-1">
+                        <div>الصيدلي (60%): <strong className="text-emerald-600 font-mono">{Math.round(Number(otcPrice) * (1 - Number(discountPercent) / 100) * 0.6)} ج.م</strong></div>
+                        <div>الإدارة (40%): <strong className="text-slate-700 font-mono">{Math.round(Number(otcPrice) * (1 - Number(discountPercent) / 100) * 0.4)} ج.م</strong></div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={isUpdatingCampaign}
+                      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-2.5 rounded-xl font-bold transition-all shadow-md flex items-center justify-center space-x-1.5 space-x-reverse mt-3 cursor-pointer"
+                    >
+                      {isUpdatingCampaign ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>تحديث البيانات...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-3.5 h-3.5" />
+                          <span>حفظ وتفعيل التسعيرة</span>
+                        </>
+                      )}
+                    </button>
+                  </form>
+                </div>
+              </div>
+
+              {/* Right Column: Revenue Growth Chart */}
+              <div className="lg:col-span-7 bg-white rounded-3xl p-5 border border-slate-200 shadow-sm space-y-4">
+                <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                  <h4 className="text-xs font-black text-slate-800 flex items-center space-x-1.5 space-x-reverse">
+                    <TrendingUp className="w-4.5 h-4.5 text-emerald-600" />
+                    <span>منحنى نمو الأرباح الإدارية والعمولات (60/40 Split)</span>
+                  </h4>
+
+                  <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+                    {(['daily', 'weekly', 'monthly'] as const).map((view) => (
+                      <button
+                        key={view}
+                        type="button"
+                        onClick={() => setChartTimeframe(view)}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer focus:outline-none ${
+                          chartTimeframe === view
+                            ? 'bg-indigo-600 text-white shadow-sm'
+                            : 'text-slate-500 hover:text-slate-800'
+                        }`}
+                      >
+                        {view === 'daily' ? 'يومي' : view === 'weekly' ? 'أسبوعي' : 'شهري'}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[440px] overflow-y-auto pr-1">
+                <div className="h-[300px] w-full bg-slate-50 rounded-2xl p-2 relative border border-slate-100">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart
+                      data={chartData}
+                      margin={{ top: 15, right: 10, left: -20, bottom: 5 }}
+                    >
+                      <defs>
+                        <linearGradient id="colorPharmacistLight" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0.05}/>
+                        </linearGradient>
+                        <linearGradient id="colorAdminLight" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.2}/>
+                          <stop offset="95%" stopColor="#4f46e5" stopOpacity={0.05}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.7} />
+                      <XAxis dataKey="name" stroke="#64748b" fontSize={9} tickLine={false} axisLine={false} />
+                      <YAxis stroke="#64748b" fontSize={9} tickLine={false} axisLine={false} />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: '#1e293b', 
+                          borderColor: '#334155',
+                          borderRadius: '10px',
+                          fontSize: '10px',
+                          textAlign: 'right',
+                          color: '#fff',
+                          direction: 'rtl'
+                        }} 
+                      />
+                      <Legend verticalAlign="top" height={25} iconSize={8} wrapperStyle={{ fontSize: '10px', direction: 'rtl' }} />
+                      <Area type="monotone" name="حصة الصيادلة (60%)" dataKey="حصة الصيادلة (60%)" stroke="#10b981" fillOpacity={1} fill="url(#colorPharmacistLight)" strokeWidth={2} />
+                      <Area type="monotone" name="حصة الإدارة (40%)" dataKey="حصة الإدارة (40%)" stroke="#4f46e5" fillOpacity={1} fill="url(#colorAdminLight)" strokeWidth={2} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 4. TAB: تقارير أداء الصيادلة */}
+        {activeTab === 'pharmacists' && (
+          <div className="space-y-5 animate-in fade-in duration-200">
+            {/* KPI Summary Row for Pharmacists */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm text-right flex justify-between items-center">
+                <div>
+                  <span className="text-[11px] text-slate-400 font-bold block">إجمالي كادر الصيادلة</span>
+                  <span className="text-xl font-black text-slate-800 font-mono mt-1 block">
+                    {totalPharmacists} <span className="text-xs font-bold text-slate-400">صيدلي</span>
+                  </span>
+                </div>
+                <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl border border-indigo-100">
+                  <Users className="w-6 h-6" />
+                </div>
+              </div>
+
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm text-right flex justify-between items-center">
+                <div>
+                  <span className="text-[11px] text-slate-400 font-bold block">متصلون بالمنظومة الآن</span>
+                  <span className="text-xl font-black text-emerald-600 font-mono mt-1 block">
+                    {onlinePharmacists} <span className="text-xs font-bold text-slate-400">أونلاين</span>
+                  </span>
+                </div>
+                <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl border border-emerald-100">
+                  <UserCheck className="w-6 h-6" />
+                </div>
+              </div>
+
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm text-right flex justify-between items-center">
+                <div>
+                  <span className="text-[11px] text-slate-400 font-bold block">غير متصلين حالياً</span>
+                  <span className="text-xl font-black text-slate-500 font-mono mt-1 block">
+                    {offlinePharmacists} <span className="text-xs font-bold text-slate-400">أوفلاين</span>
+                  </span>
+                </div>
+                <div className="p-3 bg-slate-100 text-slate-600 rounded-2xl border border-slate-200">
+                  <UserX className="w-6 h-6" />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+              {/* Left Column: Productivity Ranking */}
+              <div className="xl:col-span-5 bg-white rounded-3xl p-5 border border-slate-200 shadow-sm space-y-4">
+                <h4 className="text-xs font-black text-slate-800 flex items-center space-x-1.5 space-x-reverse border-b border-slate-100 pb-3">
+                  <Award className="w-4.5 h-4.5 text-indigo-600" />
+                  <span>جدول إنتاجية وكفاءة الصيادلة النشطين</span>
+                </h4>
+                
+                <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
+                  {pharmacistProductivity.length > 0 ? (
+                    pharmacistProductivity.map((item, idx) => (
+                      <div key={idx} className="bg-slate-50 p-3 rounded-2xl border border-slate-200 flex justify-between items-center text-xs shadow-sm">
+                        <div className="text-right">
+                          <span className="font-extrabold text-slate-800">{item.name}</span>
+                          <div className="text-[9.5px] text-slate-400 mt-0.5">متوسط المراجعة: <strong className="text-indigo-600">{item.avgTime} دقيقة</strong></div>
+                        </div>
+                        <div className="text-left">
+                          <span className="bg-indigo-100 text-indigo-800 font-bold px-2.5 py-0.5 rounded-lg font-mono text-[10px] border border-indigo-200">
+                            {item.completed} استشارات
+                          </span>
+                          <div className="text-[10px] text-emerald-600 font-bold mt-1 font-mono">{item.revenueGenerated} ج.م</div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-[11px] text-slate-400 text-center py-10">لا توجد سجلات إنتاجية مطابقة لمحددات الفلترة حالياً.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Right Column: Pharmacists Directory & Filters */}
+              <div className="xl:col-span-7 bg-white rounded-3xl p-5 border border-slate-200 shadow-sm space-y-4">
+                <div className="bg-slate-900 text-white rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center space-x-2 space-x-reverse">
+                    <ListFilter className="w-4.5 h-4.5 text-indigo-400" />
+                    <h3 className="font-extrabold text-xs">أدوات الفرز والتتبع لطاقم الصيادلة</h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                    <div className="space-y-1">
+                      <span className="text-slate-400 block font-bold text-[10.5px]">تصفية بالمنطقة الجغرافية:</span>
+                      <select
+                        value={pharmacistRegion}
+                        onChange={(e) => setPharmacistRegion(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 text-slate-200 p-2 rounded-xl focus:outline-none text-[11px]"
+                      >
+                        <option value="All">كل المحافظات</option>
+                        {uniqueGovernorates.map(gov => (
+                          <option key={gov} value={gov}>{gov}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="text-slate-400 block font-bold text-[10.5px]">تصفية بالدرجة العلمية:</span>
+                      <select
+                        value={pharmacistDegree}
+                        onChange={(e) => setPharmacistDegree(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 text-slate-200 p-2 rounded-xl focus:outline-none text-[11px]"
+                      >
+                        <option value="All">كل الدرجات العلمية</option>
+                        <option value="junior">صيدلي ممارس (Junior)</option>
+                        <option value="Senior">صيدلي أول (Senior)</option>
+                        <option value="Specialist">أخصائي رعاية صيدلانية (Specialist)</option>
+                        <option value="consultant">استشاري دواء (Consultant)</option>
+                        <option value="prime consultant">استشاري أول دواء (Prime Consultant)</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="text-slate-400 block font-bold text-[10.5px]">حالة النشاط على المنصة:</span>
+                      <select
+                        value={pharmacistStatus}
+                        onChange={(e: any) => setPharmacistStatus(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 text-slate-200 p-2 rounded-xl focus:outline-none text-[11px]"
+                      >
+                        <option value="All">الكل (نشط وغير نشط)</option>
+                        <option value="online">متصل حالياً (Online)</option>
+                        <option value="offline">غير متصل (Offline)</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[380px] overflow-y-auto pr-1">
                   {isLoadingPharmacists ? (
                     <p className="text-xs text-slate-400 text-center py-10 col-span-2 font-bold">جاري تحميل قائمة الصيادلة من السجل الأساسي...</p>
                   ) : filteredPharmacists.length > 0 ? (
                     filteredPharmacists.map((pharm) => (
                       <div 
                         key={pharm.licenseNumber} 
-                        className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm hover:border-indigo-400 transition-all flex flex-col justify-between space-y-3 text-right relative"
+                        className="bg-slate-50 rounded-2xl p-3.5 border border-slate-200 hover:border-indigo-400 transition-all flex flex-col justify-between space-y-3 text-right relative"
                       >
-                        {/* Live status badge */}
-                        <div className="absolute top-4 left-4">
-                          <span className={`inline-flex items-center space-x-1.5 space-x-reverse px-2.5 py-1 rounded-full text-[9px] font-bold ${
+                        <div className="absolute top-3.5 left-3.5">
+                          <span className={`inline-flex items-center space-x-1.5 space-x-reverse px-2 py-0.5 rounded-full text-[9px] font-bold ${
                             pharm.status === 'online' 
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
-                              : 'bg-slate-50 text-slate-400 border border-slate-200'
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' 
+                              : 'bg-slate-200 text-slate-500 border border-slate-300'
                           }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${pharm.status === 'online' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}></span>
+                            <span className={`w-1.5 h-1.5 rounded-full ${pharm.status === 'online' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`}></span>
                             <span>{pharm.status === 'online' ? 'أونلاين' : 'أوفلاين'}</span>
                           </span>
                         </div>
 
-                        {/* Pharmacist Profile fields */}
                         <div className="space-y-1">
                           <span className="text-[10px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-mono font-bold border border-indigo-100 w-max block">
                             {translateDegree(pharm.degree)}
                           </span>
-                          <h5 className="font-extrabold text-slate-800 text-sm pt-1">{pharm.fullName}</h5>
-                          <div className="text-[11px] text-slate-500 font-bold">التخصص: <strong className="text-slate-700">{translateSpecialty(pharm.specialty)}</strong></div>
+                          <h5 className="font-extrabold text-slate-800 text-xs pt-1">{pharm.fullName}</h5>
+                          <div className="text-[10.5px] text-slate-500 font-bold">التخصص: <strong className="text-slate-700">{translateSpecialty(pharm.specialty)}</strong></div>
                           
-                          <div className="flex items-center space-x-1 space-x-reverse text-[10.5px] text-slate-400 pt-1.5">
-                            <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                          <div className="flex items-center space-x-1 space-x-reverse text-[10px] text-slate-400 pt-1">
+                            <MapPin className="w-3 h-3 text-slate-400" />
                             <span>مصر، {pharm.governorate}، {pharm.city}</span>
                           </div>
                         </div>
 
-                        {/* License and Action button */}
-                        <div className="pt-2 border-t border-slate-150 flex justify-between items-center text-[10px]">
+                        <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-[10px]">
                           <span className="text-slate-400 font-mono">الترخيص: {pharm.licenseNumber}</span>
                           
                           <button
+                            type="button"
                             onClick={() => togglePharmacistStatus(pharm.licenseNumber)}
-                            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center space-x-1 space-x-reverse ${
+                            className={`px-2.5 py-1 rounded-lg text-[9.5px] font-bold border transition-all cursor-pointer flex items-center space-x-1 space-x-reverse ${
                               pharm.status === 'online'
                                 ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
                                 : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
@@ -1125,23 +1343,62 @@ export default function AdminPanel() {
                             <span>{pharm.status === 'online' ? 'قطع الاتصال' : 'تمكين الاتصال'}</span>
                           </button>
                         </div>
-
                       </div>
                     ))
                   ) : (
-                    <div className="col-span-2 text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-slate-400">
+                    <div className="col-span-2 text-center py-10 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-slate-400">
                       <p className="text-xs font-bold">لم نجد أي صيادلة يطابقون محددات الفرز المحددة حالياً.</p>
-                      <p className="text-[10px] text-slate-400 mt-1">جرب تصفير الفلاتر لرؤية طاقم الصيادلة بالكامل.</p>
                     </div>
                   )}
                 </div>
               </div>
-
             </div>
-          )}
+          </div>
+        )}
 
-          {/* TAB 3: IMMUTABLE AUDIT LOGS */}
-          {activeTab === 'logs' && (
+        {/* 5. TAB: تقارير الجودة */}
+        {activeTab === 'quality' && (
+          <div className="space-y-5 animate-in fade-in duration-200">
+            {/* Quality KPI Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm text-right flex justify-between items-center">
+                <div>
+                  <span className="text-[11px] text-slate-400 font-bold block">مداخلات سريرية منقذة للحياة (DUR)</span>
+                  <span className="text-xl font-black text-rose-600 font-mono mt-1 block">
+                    {roundedInterventionsCount} <span className="text-xs font-bold text-slate-400">مداخلة</span>
+                  </span>
+                </div>
+                <div className="p-3 bg-rose-50 text-rose-600 rounded-2xl border border-rose-100">
+                  <ShieldAlert className="w-6 h-6" />
+                </div>
+              </div>
+
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm text-right flex justify-between items-center">
+                <div>
+                  <span className="text-[11px] text-slate-400 font-bold block">منع التعارضات والحساسية الدوائية</span>
+                  <span className="text-xl font-black text-emerald-600 font-mono mt-1 block">
+                    100% <span className="text-xs font-bold text-slate-400">نسبة الامتثال</span>
+                  </span>
+                </div>
+                <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl border border-emerald-100">
+                  <CheckCircle2 className="w-6 h-6" />
+                </div>
+              </div>
+
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm text-right flex justify-between items-center">
+                <div>
+                  <span className="text-[11px] text-slate-400 font-bold block">سجلات الامتثال المعتمدة (EDA)</span>
+                  <span className="text-xl font-black text-indigo-600 font-mono mt-1 block">
+                    {metrics?.auditLogs?.length || 0} <span className="text-xs font-bold text-slate-400">سجل</span>
+                  </span>
+                </div>
+                <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl border border-indigo-100">
+                  <ShieldCheck className="w-6 h-6" />
+                </div>
+              </div>
+            </div>
+
+            {/* Audit Logs Table */}
             <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm space-y-4">
               <div className="flex justify-between items-center border-b border-slate-150 pb-3">
                 <div>
@@ -1156,24 +1413,24 @@ export default function AdminPanel() {
               <div className="space-y-2.5 max-h-[500px] overflow-y-auto pr-1">
                 {metrics?.auditLogs && metrics.auditLogs.length > 0 ? (
                   metrics.auditLogs.map((log) => (
-                    <div key={log.id} className="bg-slate-900 p-3 rounded-2xl border border-slate-800 text-right space-y-1.5 shadow-sm">
+                    <div key={log.id} className="bg-slate-900 p-3.5 rounded-2xl border border-slate-800 text-right space-y-1.5 shadow-sm">
                       <div className="flex justify-between items-center">
-                        <span className="text-slate-500 font-mono text-[9.5px]">
+                        <span className="text-slate-400 font-mono text-[9.5px]">
                           {new Date(log.timestamp).toLocaleString('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit', day: 'numeric', month: 'numeric' })}
                         </span>
-                        <span className="bg-indigo-950 text-indigo-400 font-bold text-[9px] px-2 py-0.5 rounded border border-indigo-800/40">
+                        <span className="bg-indigo-950 text-indigo-300 font-bold text-[9px] px-2 py-0.5 rounded border border-indigo-800/40">
                           {log.action}
                         </span>
                       </div>
-                      <p className="text-xs text-slate-300 leading-relaxed font-sans">{log.details}</p>
-                      <div className="flex justify-between items-center text-[10px] text-slate-500 pt-1.5 border-t border-slate-800/60 font-mono">
+                      <p className="text-xs text-slate-200 leading-relaxed font-sans">{log.details}</p>
+                      <div className="flex justify-between items-center text-[10px] text-slate-400 pt-1.5 border-t border-slate-800/60 font-mono">
                         <span>رقم مرجع الإحالة: {log.serviceId}</span>
                         <span className="text-teal-400 font-bold">{log.pharmacist}</span>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <p className="text-xs text-rose-400 text-center py-12 font-bold">لا يوجد أي سجلات تدقيق إدارية أو سريرية في الوقت الحالي.</p>
+                  <p className="text-xs text-slate-400 text-center py-12 font-bold">لا يوجد أي سجلات تدقيق إدارية أو سريرية في الوقت الحالي.</p>
                 )}
               </div>
 
@@ -1181,9 +1438,8 @@ export default function AdminPanel() {
                 🚨 <strong>ملاحظة تنظيمية:</strong> يتم تغذية هذا السجل تلقائياً عبر المداخلات الدوائية والخدمات السريرية التي تتم من خلال الصيادلة الاستشاريين، ولا يمكن تعديله أو حذفه تماشياً مع لوائح التفتيش السريري الإلكتروني المعتمدة من وزارة الصحة المصرية وهيئة الدواء.
               </div>
             </div>
-          )}
-
-        </div>
+          </div>
+        )}
 
       </div>
 

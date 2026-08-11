@@ -11,9 +11,11 @@ import {
   Trash2, Plus, ArrowLeft, Camera, Bell, BellOff, Hourglass, Video, Check, 
   ChevronRight, RefreshCw, Layers, MapPin, Heart, HelpCircle,
   HeartPulse, Activity, FileText, AlertTriangle, FileCheck, ShieldAlert,
-  Mic, MicOff, VideoOff, PhoneOff, MessageSquare, CreditCard, Copy
+  Mic, MicOff, VideoOff, PhoneOff, MessageSquare, CreditCard, Copy,
+  Clock, Users, BarChart2, UserPlus, LogOut, X, TrendingUp
 } from "lucide-react";
 import { PatientProfile, ApprovedSpecialtiesList, ApprovedSpecialty, ClinicalReport, AppNotification, AlcoholLevel, PhysicalActivity, CurrentMedication, PharmacistProfile, PharmacistReview } from "../types";
+import { DEFAULT_PATIENTS } from "../defaultData";
 import AuthInterface from "./AuthInterface";
 import MedicationInsights from "./MedicationInsights";
 import PatientPortalSummaryStats from "./PatientPortalSummaryStats";
@@ -74,7 +76,7 @@ export default function MobilePatientSimulator({
 
   // Navigation states inside simulated phone app
   // Screens: 'dashboard' | 'profile' | 'otc-book' | 'rev-book' | 'pillbox' | 'scanner' | 'payment' | 'videocall' | 'overview' | 'auth' | 'insights' | 'pharmacists'
-  const [screen, setScreen] = useState<'dashboard' | 'profile' | 'otc-book' | 'rev-book' | 'pillbox' | 'scanner' | 'payment' | 'videocall' | 'overview' | 'auth' | 'insights' | 'pharmacists'>('dashboard');
+  const [screen, setScreen] = useState<string>('doses');
   
   // Pharmacist Profile Modal state for patient inspection
   const [selectedPharmacistProfile, setSelectedPharmacistProfile] = useState<PharmacistProfile | null>(null);
@@ -140,10 +142,7 @@ export default function MobilePatientSimulator({
   };
   
   // Dependents List state (managed locally and saved to primary DB if requested)
-  const [dependents, setDependents] = useState<Array<{ name: string; relation: string; nationalId: string }>>([
-    { name: "ليلى أحمد محمد علي", relation: "ابنة", nationalId: "31008151234567" },
-    { name: "مريم أحمد محمد علي", relation: "ابنة", nationalId: "31210201234567" }
-  ]);
+  const [dependents, setDependents] = useState<Array<{ name: string; relation: string; nationalId: string }>>([]);
   const [newDepName, setNewDepName] = useState("");
   const [newDepRelation, setNewDepRelation] = useState("ابن");
   const [newDepNId, setNewDepNId] = useState("");
@@ -516,7 +515,11 @@ export default function MobilePatientSimulator({
     }
   });
 
-  const baseActivePatient = patients.find(p => p.nationalId === activePatientId) || patients[0];
+  const effectivePatients = useMemo(() => {
+    return patients && patients.length > 0 ? patients : DEFAULT_PATIENTS;
+  }, [patients]);
+
+  const baseActivePatient = effectivePatients.find(p => p.nationalId === activePatientId) || effectivePatients[0];
   const activePatient = useMemo(() => {
     if (!baseActivePatient) return null;
     return {
@@ -979,21 +982,14 @@ export default function MobilePatientSimulator({
               .catch(err => console.error(err));
 
             // 3. HTML5 browser-based native push notifications Web API
-            if ("Notification" in window) {
-              if (Notification.permission === "granted") {
+            if ("Notification" in window && Notification.permission === "granted") {
+              try {
                 new Notification(newNotif.title, {
                   body: newNotif.body,
                   icon: "https://images.unsplash.com/photo-1576091160550-2173dba999ef?q=80&w=128&auto=format&fit=crop"
                 });
-              } else if (Notification.permission !== "denied") {
-                Notification.requestPermission().then(p => {
-                  if (p === "granted") {
-                    new Notification(newNotif.title, {
-                      body: newNotif.body,
-                      icon: "https://images.unsplash.com/photo-1576091160550-2173dba999ef?q=80&w=128&auto=format&fit=crop"
-                    });
-                  }
-                });
+              } catch (e) {
+                console.warn("Browser notification failed:", e);
               }
             }
           }
@@ -1700,17 +1696,17 @@ export default function MobilePatientSimulator({
   const loadBookedServices = async (retryCount = 0) => {
     try {
       const res = await fetch("/api/v1/services");
-      if (res.ok) {
+      if (res.ok && res.headers.get("content-type")?.includes("application/json")) {
         const data = await res.json();
         setBookedServices(data || {otc: [], revisions: [], plan: []});
-      } else if (res.status >= 500 && retryCount < 3) {
-        setTimeout(() => loadBookedServices(retryCount + 1), 2000);
+      } else if (retryCount < 3) {
+        setTimeout(() => loadBookedServices(retryCount + 1), 1500);
       }
     } catch (err) {
       if (retryCount < 3) {
-        setTimeout(() => loadBookedServices(retryCount + 1), 2000);
+        setTimeout(() => loadBookedServices(retryCount + 1), 1500);
       } else {
-        console.error("Error loading booked services:", err);
+        setBookedServices(prev => prev || {otc: [], revisions: [], plan: []});
       }
     }
   };
@@ -1758,6 +1754,19 @@ export default function MobilePatientSimulator({
 
   const removeDependent = (idx: number) => {
     setDependents(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const patientNotifs = notifications.filter(n => n.recipient === 'patient');
+  const upcomingDosesCount = activePatient?.currentMedications?.length || 0;
+  const activeBookingsCount = (bookedServices?.otc?.length || 0) + (bookedServices?.revisions?.length || 0) + (bookedServices?.plan?.length || 0);
+
+  const triggerNativeDoseAlarm = () => {
+    triggerMedicationReminders();
+    alert("تم تشغيل محاكاة تنبيه الجرعة بنجاح! تحقق من القائمة المنسدلة للتنبيهات.");
+  };
+
+  const handleTakeDose = (medName: string) => {
+    alert(`تم توثيق تناول جرعة ${medName} بنجاح ✓`);
   };
 
   return (
@@ -1808,37 +1817,691 @@ export default function MobilePatientSimulator({
           </motion.div>
         )}
 
-        {/* HEADER SECTION */}
-        {screen !== 'dashboard' && (
-          <div className="bg-teal-700 text-white p-3 pt-4 flex items-center justify-between shadow-md">
-            <button onClick={() => setScreen('dashboard')} className="p-1 hover:bg-teal-800 rounded-full transition-colors">
-              <ArrowLeft className="w-5 h-5 text-teal-100" />
-            </button>
-            <h2 className="text-md font-bold tracking-tight">
-              {screen === 'profile' && "الملف الطبي الصحي الشامل"}
-              {screen === 'overview' && "ملف السلامة والتقارير الطبية"}
-              {screen === 'otc-book' && "حجز استشارة صيدلانية OTC"}
-              {screen === 'rev-book' && "مراجعة الروشتة والأدوية"}
-              {screen === 'pillbox' && "علبة الأدوية الرقمية"}
-              {screen === 'insights' && "تحليلات وامتثال الأدوية"}
-              {screen === 'scanner' && "ماسح الروشتة الضوئي"}
-              {screen === 'payment' && "بوابة الدفع الإلكتروني"}
-              {screen === 'videocall' && "العيادة الإلكترونية المباشرة"}
-              {screen === 'auth' && "حساب المحاكاة الآمن (JWT)"}
-              {screen === 'pharmacists' && "دليل الصيدلانيين والشهادات والتقييمات"}
-            </h2>
+        {/* TOP HEADER BAR */}
+        <div className="bg-gradient-to-r from-teal-800 to-cyan-900 text-white p-2.5 px-3 flex items-center justify-between shadow-md z-30 shrink-0">
+          {/* Left Side (RTL): Notification Bell Icon (Top Left as requested) & Logout */}
+          <div className="flex items-center space-x-1.5 space-x-reverse">
             <button 
               onClick={() => setShowNotifDropdown(!showNotifDropdown)}
-              className="relative p-1.5 hover:bg-teal-800 rounded-full transition-colors focus:outline-none cursor-pointer"
-              title="تنبيهات الصيدلية والجرعات"
+              className="relative p-1.5 bg-teal-900/80 hover:bg-teal-700/80 border border-teal-400/40 rounded-xl cursor-pointer text-white transition-all flex items-center justify-center focus:outline-none shadow-sm"
+              title="التنبيهات والإشعارات"
             >
-              <Bell className="w-5 h-5 text-teal-100" />
+              <Bell className="w-4 h-4 text-teal-200" />
               {totalAlertCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-rose-600 text-[9px] text-white font-extrabold rounded-full flex items-center justify-center animate-pulse shadow-sm border border-teal-800">
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-600 text-white text-[8px] font-extrabold rounded-full flex items-center justify-center animate-pulse border border-teal-900 shadow-sm">
                   {totalAlertCount}
                 </span>
               )}
             </button>
+
+            {currentUser && (
+              <button
+                onClick={onLogout}
+                className="p-1 bg-rose-900/60 hover:bg-rose-800/80 border border-rose-500/40 rounded-xl text-rose-200 hover:text-white transition-all text-[10px] font-bold flex items-center gap-1 cursor-pointer px-2"
+                title="تسجيل الخروج"
+              >
+                <LogOut className="w-3 h-3" />
+                <span className="hidden sm:inline">خروج</span>
+              </button>
+            )}
+          </div>
+
+          {/* Right Side (RTL): App Title & Patient Profile */}
+          <div className="flex items-center space-x-2 space-x-reverse">
+            <div className="text-right">
+              <h4 className="text-xs font-black text-white leading-tight">
+                {currentUser ? activePatient?.fullName : "محاكي تطبيق المريض"}
+              </h4>
+              <p className="text-[8.5px] text-teal-200">InfoDoctors Patient Portal</p>
+            </div>
+            <div className="w-7 h-7 rounded-full bg-teal-600/80 border border-teal-300 flex items-center justify-center text-white font-bold text-xs overflow-hidden">
+              {activePatient?.profilePhotoUrl ? (
+                <img src={activePatient.profilePhotoUrl} alt={activePatient.fullName} className="w-full h-full object-cover" />
+              ) : (
+                activePatient?.fullName?.[0] || "م"
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* NOTIFICATIONS & ALERTS MODAL / DRAWER */}
+        {showNotifDropdown && (
+          <div 
+            className="absolute top-12 left-2 right-2 bg-slate-900 text-white rounded-2xl shadow-2xl border border-slate-700 z-50 p-3 space-y-3 font-sans max-h-[80%] overflow-y-auto"
+            style={{ direction: "rtl" }}
+          >
+            <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+              <h3 className="text-xs font-black text-teal-300 flex items-center gap-1.5">
+                <Bell className="w-4 h-4 text-teal-400" />
+                تنبيهات وإشعارات الدواء والصيدلية ({totalAlertCount})
+              </h3>
+              <button
+                onClick={() => setShowNotifDropdown(false)}
+                className="p-1 text-slate-400 hover:text-white rounded-full cursor-pointer text-xs"
+              >
+                ✕
+              </button>
+            </div>
+
+            <RecentNotifications 
+              notifications={patientNotifs}
+              onMarkAsRead={(id) => markNotifAsRead(id)}
+            />
+
+            <div className="pt-2 border-t border-slate-800 flex justify-between items-center text-[10px]">
+              <button
+                onClick={() => triggerNativeDoseAlarm()}
+                className="text-teal-400 font-bold hover:underline cursor-pointer"
+              >
+                🔔 تجربة تنبيه الجرعة
+              </button>
+              <button
+                onClick={() => setShowNotifDropdown(false)}
+                className="px-3 py-1 bg-slate-800 text-slate-300 font-bold rounded-lg cursor-pointer hover:bg-slate-700"
+              >
+                إغلاق
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* MAIN BODY: LOGIN ONLY IF NOT LOGGED IN, ELSE SIDE NAV + 7 TABS */}
+        {!currentUser ? (
+          /* LOGIN SCREEN ONLY (NO DATA SHOWN BEFORE LOGIN) */
+          <div className="flex-1 p-3.5 space-y-3 overflow-y-auto bg-slate-50 flex flex-col justify-start" style={{ direction: "rtl" }}>
+            <div className="bg-amber-500/10 border border-amber-500/30 p-3 rounded-2xl text-center space-y-1">
+              <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center mx-auto">
+                <Lock className="w-4 h-4" />
+              </div>
+              <h3 className="text-xs font-black text-amber-900">الرجاء تسجيل الدخول أولاً للوصول إلى الخدمات الطبية</h3>
+              <p className="text-[10px] text-amber-700 leading-tight">
+                حماية لخصوصيتك، لا يتم عرض أي بيانات مرضية أو سجلات علاجية أو جدول جرعات قبل إتمام تسجيل الدخول.
+              </p>
+            </div>
+
+            <AuthInterface 
+              role="patient"
+              currentUser={currentUser}
+              onAuthSuccess={(token, user) => {
+                onAuthSuccess(token, user);
+                setScreen('doses');
+              }}
+              onLogout={onLogout}
+            />
+          </div>
+        ) : (
+          /* LOGGED IN APP WITH SIDE TAB NAVIGATION BAR */
+          <div className="flex-1 flex flex-row overflow-hidden relative" style={{ direction: "rtl" }}>
+            
+            {/* SIDE TAB NAVIGATION BAR (ON RIGHT SIDE FOR RTL IN EXACT SPECIFIED ORDER) */}
+            <div className="w-[72px] bg-slate-900 text-slate-300 border-l border-slate-800 flex flex-col items-center py-2 space-y-2 overflow-y-auto shrink-0 z-20 shadow-xl">
+              {[
+                { id: 'doses', label: 'الجرعات', icon: Clock, badge: upcomingDosesCount },
+                { id: 'pharmacists', label: 'الصيادلة', icon: Users },
+                { id: 'services', label: 'الخدمات', icon: FileText },
+                { id: 'agenda', label: 'المواعيد', icon: Calendar, badge: activeBookingsCount },
+                { id: 'records', label: 'السجل', icon: Activity },
+                { id: 'insights', label: 'الالتزام', icon: BarChart2 },
+                { id: 'family', label: 'العائلة', icon: UserPlus, badge: dependents.length },
+              ].map((tab) => {
+                const IconComponent = tab.icon;
+                const isActive = screen === tab.id || (tab.id === 'doses' && screen === 'pillbox') || (tab.id === 'records' && (screen === 'profile' || screen === 'overview')) || (tab.id === 'services' && (screen === 'otc-book' || screen === 'rev-book'));
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setScreen(tab.id as any)}
+                    className={`w-[62px] py-2 px-1 rounded-xl flex flex-col items-center justify-center transition-all cursor-pointer relative ${
+                      isActive 
+                        ? 'bg-gradient-to-b from-teal-600 to-emerald-600 text-white font-black shadow-lg scale-105 border-r-4 border-teal-300' 
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
+                    }`}
+                    title={tab.label}
+                  >
+                    <div className="relative">
+                      <IconComponent className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                      {tab.badge !== undefined && tab.badge > 0 && (
+                        <span className="absolute -top-1.5 -right-2 bg-rose-500 text-white text-[8px] font-black px-1 rounded-full animate-pulse">
+                          {tab.badge}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[8.5px] font-bold mt-1 text-center leading-none tracking-tighter truncate w-full">
+                      {tab.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* MAIN CONTENT AREA FOR ACTIVE TAB */}
+            <div className="flex-1 overflow-y-auto p-3 space-y-4 bg-slate-50">
+              
+              {/* TAB 1: جدول الجرعات القادمة */}
+              {(screen === 'doses' || screen === 'pillbox') && (
+                <div className="space-y-3.5 animate-in fade-in duration-200">
+                  <div className="bg-gradient-to-r from-teal-700 to-emerald-800 text-white p-3.5 rounded-2xl shadow-sm flex items-center justify-between">
+                    <div>
+                      <h3 className="text-xs font-black flex items-center gap-1.5">
+                        <Clock className="w-4 h-4 text-teal-200" />
+                        جدول الجرعات القادمة والعلبة الرقمية
+                      </h3>
+                      <p className="text-[10px] text-teal-100 mt-0.5">متابعة التنبيهات وتوثيق استهلاك الأدوية اليومية</p>
+                    </div>
+                    <button 
+                      onClick={() => triggerNativeDoseAlarm()}
+                      className="px-2.5 py-1 bg-white/20 hover:bg-white/30 text-white text-[10px] font-bold rounded-lg backdrop-blur-sm transition-all"
+                    >
+                      🔔 تجربة تنبيه
+                    </button>
+                  </div>
+
+                  {/* Summary Stats Overview */}
+                  <PatientPortalSummaryStats
+                    patient={activePatient}
+                    bookedServices={bookedServices}
+                    takenDosesCount={Object.values(pillStatus).filter(Boolean).length || 15}
+                    skippedDosesCount={Object.values(skippedAlarms).filter(Boolean).length || 1}
+                    reportsCount={reports.length || 2}
+                    onNavigateToScreen={(scr) => setScreen(scr as any)}
+                  />
+
+                  {/* Medication Schedule Alerts */}
+                  <MedicationScheduleAlerts
+                    patient={activePatient}
+                    showScheduleOnlyOnDashboard={true}
+                    onDoseTaken={(doseId) => setPillStatus(prev => ({ ...prev, [doseId]: true }))}
+                    onDoseSkipped={(doseId) => setSkippedAlarms(prev => ({ ...prev, [doseId]: true }))}
+                    onDoseSnoozed={(doseId) => setSnoozedAlarms(prev => ({ ...prev, [doseId]: { time: new Date().toISOString(), count: (prev[doseId]?.count || 0) + 1 } }))}
+                    onAddNotification={(notif) => setNotifications(prev => [{
+                      id: `notif-${Date.now()}`,
+                      recipient: 'patient',
+                      title: notif.title,
+                      body: notif.body,
+                      type: notif.type as any,
+                      read: false,
+                      createdAt: new Date().toISOString()
+                    }, ...prev])}
+                  />
+
+                  {/* Digital Pillbox breakdown */}
+                  <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                    <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <HeartPulse className="w-3.5 h-3.5 text-teal-600" />
+                      تفاصيل العلبة الرقمية اليومية ({activePatient?.currentMedications?.length || 0} أدوية)
+                    </h4>
+                    <div className="space-y-2">
+                      {activePatient?.currentMedications?.map((med, i) => (
+                        <div key={i} className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 flex justify-between items-center text-xs">
+                          <div>
+                            <p className="font-bold text-slate-900">{med.brandName || med.activeIngredient || (med as any).medicationName || "دواء مسجل"}</p>
+                            <p className="text-[10px] text-slate-500">
+                              الجرعة: {med.concentration || (med as any).dosage || (med as any).dose || "محددة"} • {
+                                typeof med.frequency === 'object' && med.frequency !== null
+                                  ? `${med.frequency.units || 1} ${med.frequency.type || ''} (${med.frequency.timeframe || ''})`.trim()
+                                  : String(med.frequency || "حسب الجدول")
+                              }
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => handleTakeDose(med.brandName || med.activeIngredient || (med as any).medicationName)}
+                            className="px-2.5 py-1 bg-teal-600 hover:bg-teal-700 text-white text-[10px] font-bold rounded-lg transition-all shadow-sm cursor-pointer"
+                          >
+                            تم التناول ✓
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 2: دليل الصيادلة */}
+              {screen === 'pharmacists' && (
+                <div className="space-y-3.5 animate-in fade-in duration-200">
+                  <PharmacistsDirectory 
+                    onSelectPharmacist={(profile) => handleOpenPharmacistProfile(profile)}
+                    onRequestConsultation={() => setScreen('services')}
+                  />
+                </div>
+              )}
+
+              {/* TAB 3: طلب الخدمات */}
+              {(screen === 'services' || screen === 'otc-book' || screen === 'rev-book') && (
+                <div className="space-y-3.5 animate-in fade-in duration-200">
+                  <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                    <h3 className="text-xs font-black text-slate-800 flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-teal-600" />
+                      بوابة طلب الاستشارات والخدمات الصيدلانية
+                    </h3>
+                    <p className="text-[10.5px] text-slate-500">اختر نوع الخدمة الصيدلانية المطلوبة لحجز موعد تدقيق أو استشارة فورية</p>
+
+                    <div className="grid grid-cols-1 gap-2.5 pt-1">
+                      <div 
+                        onClick={() => { setPaymentServiceType('OTC'); setScreen('payment'); }}
+                        className="p-3 bg-teal-50/70 hover:bg-teal-50 border border-teal-200 rounded-xl cursor-pointer transition-all flex justify-between items-center shadow-xs"
+                      >
+                        <div>
+                          <h4 className="text-xs font-bold text-teal-900">💊 استشارة OTC وتصحيح الجرعات</h4>
+                          <p className="text-[10px] text-teal-700 mt-0.5">تقييم الأعراض وصف الأدوية اللاوصفية مع فحص التعارضات</p>
+                        </div>
+                        <span className="text-xs font-black text-teal-800 bg-teal-200/80 px-2 py-1 rounded-lg">250 ج.م</span>
+                      </div>
+
+                      <div 
+                        onClick={() => { setPaymentServiceType('REV'); setScreen('payment'); }}
+                        className="p-3 bg-blue-50/70 hover:bg-blue-50 border border-blue-200 rounded-xl cursor-pointer transition-all flex justify-between items-center shadow-xs"
+                      >
+                        <div>
+                          <h4 className="text-xs font-bold text-blue-900">📄 مراجعة وتدقيق الروشتة والأدوية</h4>
+                          <p className="text-[10px] text-blue-700 mt-0.5">مراجعة شاملة للروشتة وفحص السلامة الدوائية (DUR)</p>
+                        </div>
+                        <span className="text-xs font-black text-blue-800 bg-blue-200/80 px-2 py-1 rounded-lg">350 ج.م</span>
+                      </div>
+
+                      <div 
+                        onClick={() => { setPaymentServiceType('MMP'); setScreen('payment'); }}
+                        className="p-3 bg-purple-50/70 hover:bg-purple-50 border border-purple-200 rounded-xl cursor-pointer transition-all flex justify-between items-center shadow-xs"
+                      >
+                        <div>
+                          <h4 className="text-xs font-bold text-purple-900">📋 خطة الإدارة الدوائية الشاملة (MMP)</h4>
+                          <p className="text-[10px] text-purple-700 mt-0.5">متابعة شهرية دقيقة لأصحاب الأمراض المزمنة وتعديل الخطة</p>
+                        </div>
+                        <span className="text-xs font-black text-purple-800 bg-purple-200/80 px-2 py-1 rounded-lg">500 ج.م</span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
+                      <button
+                        onClick={() => setScreen('scanner')}
+                        className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-[10.5px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                      >
+                        <Camera className="w-3.5 h-3.5 text-teal-600" />
+                        <span>ماسح الروشتة الضوئي</span>
+                      </button>
+                      <button
+                        onClick={() => setScreen('videocall')}
+                        className="p-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-[10.5px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                      >
+                        <Video className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>العيادة الافتراضية Live</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 4: أجندة المواعيد */}
+              {screen === 'agenda' && (
+                <div className="space-y-3.5 animate-in fade-in duration-200">
+                  <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                    <h3 className="text-xs font-black text-slate-800 flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-teal-600" />
+                      أجندة المواعيد والحجوزات القادمة
+                    </h3>
+                    <p className="text-[10.5px] text-slate-500">استعراض المواعيد المحجوزة ورابط العيادة الافتراضية المباشرة</p>
+
+                    <div className="space-y-2.5 pt-1">
+                      {bookedServices && (bookedServices.otc?.length > 0 || bookedServices.revisions?.length > 0 || bookedServices.plan?.length > 0) ? (
+                        [...(bookedServices.otc || []), ...(bookedServices.revisions || []), ...(bookedServices.plan || [])].map((item: any, i: number) => (
+                          <div key={i} className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <span className="text-[9.5px] font-bold px-2 py-0.5 rounded bg-teal-100 text-teal-800">
+                                  {item.specialty || "استشارة عامة"}
+                                </span>
+                                <h4 className="text-xs font-bold text-slate-900 mt-1">{item.complaint || "طلب استشارة صيدلانية معتمدة"}</h4>
+                                <p className="text-[10px] text-slate-500 font-mono mt-0.5">📅 الموعد: {item.bookingDate || "اليوم"} • {item.bookingTime || "06:00 PM"}</p>
+                              </div>
+                              <span className="text-[9.5px] font-extrabold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                مؤكدة ✓
+                              </span>
+                            </div>
+
+                            {item.meetUrl ? (
+                              <a
+                                href={item.meetUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10.5px] font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm"
+                              >
+                                <Video className="w-4 h-4" />
+                                <span>الانضمام للعيادة الافتراضية (Google Meet)</span>
+                              </a>
+                            ) : (
+                              <div className="text-[10px] text-slate-600 bg-slate-100 p-2 rounded-lg flex justify-between items-center">
+                                <span>جاري تجهيز رابط العيادة الافتراضية مع الصيدلي...</span>
+                                <button 
+                                  onClick={() => setScreen('videocall')}
+                                  className="text-teal-700 font-bold hover:underline"
+                                >
+                                  دخول العيادة
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-slate-400">
+                          <Calendar className="w-8 h-8 mx-auto text-slate-300 mb-2" />
+                          <p className="text-xs font-bold text-slate-600">لا توجد أي مواعيد محجوزة حالياً</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">يمكنك حجز استشارة صيدلانية من تبويب "طلب الخدمات"</p>
+                          <button
+                            onClick={() => setScreen('services')}
+                            className="mt-3 px-3 py-1.5 bg-teal-600 text-white rounded-lg text-xs font-bold shadow-sm"
+                          >
+                            احجز موعداً الآن
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 5: السجل العلاجي */}
+              {(screen === 'records' || screen === 'profile' || screen === 'overview') && (
+                <div className="space-y-3.5 animate-in fade-in duration-200">
+                  <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-10 h-10 rounded-full bg-teal-100 text-teal-800 font-bold flex items-center justify-center text-sm border border-teal-200 overflow-hidden">
+                          {activePatient?.profilePhotoUrl ? (
+                            <img src={activePatient.profilePhotoUrl} alt={activePatient.fullName} className="w-full h-full object-cover" />
+                          ) : (
+                            activePatient?.fullName?.[0] || "م"
+                          )}
+                        </div>
+                        <div>
+                          <h3 className="text-xs font-black text-slate-900">{activePatient?.fullName}</h3>
+                          <p className="text-[10px] text-slate-500 font-mono">الرقم القومي: {activePatient?.nationalId}</p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-1 bg-teal-50 text-teal-800 rounded-lg border border-teal-100">
+                        فصيلة الدم: {activePatient?.bloodGroup || "A+"}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl">
+                        <p className="text-[10px] font-bold text-rose-800 flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3" /> الحساسية الدوائية:
+                        </p>
+                        <p className="font-bold text-rose-950 mt-0.5">
+                          {
+                            Array.isArray(activePatient?.allergies)
+                              ? activePatient.allergies.join("، ")
+                              : [
+                                  ...(activePatient?.allergies?.drugAllergies || []),
+                                  ...(activePatient?.allergies?.foodAllergies || []),
+                                  ...(activePatient?.allergies?.otherAllergies ? [activePatient.allergies.otherAllergies] : [])
+                                ].join("، ") || "لا توجد حساسية تسجل"
+                          }
+                        </p>
+                      </div>
+                      <div className="p-2.5 bg-blue-50 border border-blue-200 rounded-xl">
+                        <p className="text-[10px] font-bold text-blue-800 flex items-center gap-1">
+                          <Activity className="w-3 h-3" /> الأمراض المزمنة:
+                        </p>
+                        <p className="font-bold text-blue-950 mt-0.5">
+                          {
+                            Array.isArray((activePatient as any)?.chronicConditions)
+                              ? (activePatient as any).chronicConditions.join("، ")
+                              : activePatient?.medicalHistory?.chronicDiseases?.map(d => d.disease).join("، ") || "سليم"
+                          }
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 pt-2 border-t border-slate-100">
+                      <h4 className="text-xs font-bold text-slate-800">الأدوية والروشتات النشطة ({activePatient?.currentMedications?.length || 0})</h4>
+                      {activePatient?.currentMedications?.map((m, idx) => (
+                        <div key={idx} className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 flex justify-between items-center text-xs">
+                          <div>
+                            <p className="font-bold text-slate-900">{m.brandName || m.activeIngredient || (m as any).medicationName || "دواء مسجل"}</p>
+                            <p className="text-[10px] text-slate-500">
+                              الجرعة: {m.concentration || (m as any).dosage || (m as any).dose || "محددة"} • الطبيب: {(m as any).prescribingDoctor || "عيادة معتمدة"}
+                            </p>
+                          </div>
+                          <span className="text-[9.5px] font-bold px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded">نشط</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="space-y-2 pt-2 border-t border-slate-100">
+                      <h4 className="text-xs font-bold text-slate-800 flex items-center justify-between">
+                        <span>التقارير والروشتات المعتمدة (EDA)</span>
+                        <button 
+                          onClick={() => fetchReports()} 
+                          className="text-[10px] text-teal-700 hover:underline flex items-center gap-1"
+                        >
+                          <RefreshCw className="w-3 h-3" /> تحديث
+                        </button>
+                      </h4>
+                      {reports && reports.length > 0 ? (
+                        reports.map((rep: any, idx: number) => (
+                          <div key={idx} className="p-3 bg-teal-50/50 border border-teal-200 rounded-xl space-y-1.5 text-xs">
+                            <div className="flex justify-between items-center">
+                              <span className="font-bold text-teal-900">{rep.reportType || "تقرير استشارة صيدلانية"}</span>
+                              <span className="text-[9.5px] font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">موقع إلكترونياً ✓</span>
+                            </div>
+                            <p className="text-[10.5px] text-slate-700">{rep.summary || rep.pharmacistNotes || "تم مراجعة الروشتة وتدقيق السلامة."}</p>
+                            <p className="text-[9.5px] text-slate-500 font-mono">توقيع الصيدلي: {rep.pharmacistName || "د. أميرة أحمد"}</p>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-[10.5px] text-slate-400 italic">لا توجد تقارير موقعة إلكترونياً سابقة.</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 6: تقارير الالتزام الدوائي */}
+              {screen === 'insights' && (
+                <div className="space-y-3.5 animate-in fade-in duration-200">
+                  <MedicationInsights 
+                    activePatient={activePatient}
+                    finalTimetableItems={finalTimetableItems}
+                    pillStatus={pillStatus}
+                    skippedAlarms={skippedAlarms}
+                    snoozedAlarms={snoozedAlarms}
+                  />
+                </div>
+              )}
+
+              {/* TAB 7: إدارة ملفات العائلة والتابعين */}
+              {screen === 'family' && (
+                <div className="space-y-3.5 animate-in fade-in duration-200">
+                  <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                    <h3 className="text-xs font-black text-slate-800 flex items-center gap-2">
+                      <UserPlus className="w-4 h-4 text-teal-600" />
+                      إدارة ملفات العائلة والتابعين
+                    </h3>
+                    <p className="text-[10.5px] text-slate-500">إضافة أفراد العائلة (أطفال، كبار السن) لمتابعة جرعاتهم وحجز استشاراتهم</p>
+
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
+                      <h4 className="text-[11px] font-bold text-slate-800">إضافة تابع جديد للملف الموحد</h4>
+                      <div className="grid grid-cols-1 gap-2">
+                        <input
+                          type="text"
+                          value={newDepName}
+                          onChange={(e) => setNewDepName(e.target.value)}
+                          placeholder="اسم التابع الثلاثي"
+                          className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs"
+                        />
+                        <div className="grid grid-cols-2 gap-2">
+                          <select
+                            value={newDepRelation}
+                            onChange={(e) => setNewDepRelation(e.target.value)}
+                            className="p-2 bg-white border border-slate-200 rounded-lg text-xs"
+                          >
+                            <option value="ابن">ابن</option>
+                            <option value="ابنة">ابنة</option>
+                            <option value="والد">والد</option>
+                            <option value="والدة">والدة</option>
+                            <option value="زوج">زوج / زوجة</option>
+                          </select>
+                          <input
+                            type="text"
+                            value={newDepNId}
+                            onChange={(e) => setNewDepNId(e.target.value)}
+                            placeholder="الرقم القومي (14 رقم)"
+                            className="p-2 bg-white border border-slate-200 rounded-lg text-xs font-mono"
+                          />
+                        </div>
+                        <button
+                          onClick={() => addDependent()}
+                          className="w-full py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm cursor-pointer"
+                        >
+                          حفظ وإضافة التابع
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 pt-2 border-t border-slate-100">
+                      <h4 className="text-xs font-bold text-slate-800">أفراد العائلة المسجلون ({dependents.length})</h4>
+                      {dependents.length > 0 ? (
+                        dependents.map((dep, idx) => (
+                          <div key={idx} className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 flex justify-between items-center text-xs">
+                            <div>
+                              <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-teal-100 text-teal-800 ml-2">
+                                {dep.relation}
+                              </span>
+                              <span className="font-bold text-slate-900">{dep.name}</span>
+                              <p className="text-[10px] text-slate-500 font-mono mt-0.5">قومي: {dep.nationalId}</p>
+                            </div>
+                            <button
+                              onClick={() => removeDependent(idx)}
+                              className="p-1.5 text-rose-600 hover:bg-rose-100 rounded-lg transition-all"
+                              title="حذف التابع"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-[10.5px] text-slate-400 italic">لا يوجد أفراد عائلة مضافون حالياً.</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SECONDARY SCREEN: SCANNER */}
+              {screen === 'scanner' && (
+                <div className="space-y-3 animate-in fade-in duration-200">
+                  <div className="flex justify-between items-center">
+                    <button onClick={() => setScreen('services')} className="px-3 py-1 bg-slate-200 text-slate-800 rounded-lg text-xs font-bold flex items-center gap-1">
+                      <ArrowLeft className="w-3.5 h-3.5" /> العودة للخدمات
+                    </button>
+                    <h3 className="text-xs font-bold text-slate-900">ماسح الروشتة الضوئي</h3>
+                  </div>
+                  <div className="bg-white p-4 rounded-2xl border border-slate-200 text-center space-y-3">
+                    <Camera className="w-10 h-10 mx-auto text-teal-600 animate-pulse" />
+                    <p className="text-xs font-bold text-slate-800">التقط صورة الروشتة أو ارفع ملف PDF</p>
+                    <button
+                      onClick={() => {
+                        setScannedImage("https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?q=80&w=300");
+                        alert("تم التقاط صورة الروشتة بنجاح!");
+                      }}
+                      className="px-4 py-2 bg-teal-600 text-white rounded-xl text-xs font-bold shadow-sm cursor-pointer"
+                    >
+                      التقاط بالكميرا الآن
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* SECONDARY SCREEN: PAYMENT */}
+              {screen === 'payment' && (
+                <div className="space-y-3 animate-in fade-in duration-200">
+                  <div className="flex justify-between items-center">
+                    <button onClick={() => setScreen('services')} className="px-3 py-1 bg-slate-200 text-slate-800 rounded-lg text-xs font-bold flex items-center gap-1">
+                      <ArrowLeft className="w-3.5 h-3.5" /> العودة للخدمات
+                    </button>
+                    <h3 className="text-xs font-bold text-slate-900">بوابة الدفع الإلكتروني EGP</h3>
+                  </div>
+                  <div className="bg-white p-4 rounded-2xl border border-slate-200 space-y-3">
+                    <div className="p-3 bg-teal-50 border border-teal-200 rounded-xl flex justify-between items-center text-xs">
+                      <span className="font-bold text-teal-900">إجمالي رسوم الخدمة:</span>
+                      <span className="font-extrabold text-teal-800">
+                        {paymentServiceType === 'OTC' ? '250 ج.م' : paymentServiceType === 'REV' ? '350 ج.م' : '500 ج.م'}
+                      </span>
+                    </div>
+
+                    <div className="space-y-2">
+                      <p className="text-[11px] font-bold text-slate-800">اختر طريقة الدفع:</p>
+                      <div className="grid grid-cols-3 gap-2 text-[10.5px]">
+                        <button
+                          onClick={() => setPaymentProvider('visa')}
+                          className={`p-2 border rounded-xl font-bold cursor-pointer ${paymentProvider === 'visa' ? 'bg-teal-600 text-white border-teal-600' : 'bg-slate-50 text-slate-700'}`}
+                        >
+                          💳 فيزا / ماستر
+                        </button>
+                        <button
+                          onClick={() => setPaymentProvider('vodafone')}
+                          className={`p-2 border rounded-xl font-bold cursor-pointer ${paymentProvider === 'vodafone' ? 'bg-rose-600 text-white border-rose-600' : 'bg-slate-50 text-slate-700'}`}
+                        >
+                          📱 فودافون كاش
+                        </button>
+                        <button
+                          onClick={() => setPaymentProvider('fawry')}
+                          className={`p-2 border rounded-xl font-bold cursor-pointer ${paymentProvider === 'fawry' ? 'bg-amber-500 text-white border-amber-500' : 'bg-slate-50 text-slate-700'}`}
+                        >
+                          🟡 فوري
+                        </button>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={async () => {
+                        setIsProcessingPayment(true);
+                        setTimeout(() => {
+                          setIsProcessingPayment(false);
+                          alert("تم تأكيد عملية الدفع وحجز الموعد بنجاح!");
+                          onServiceCreated();
+                          setScreen('agenda');
+                        }, 1200);
+                      }}
+                      disabled={isProcessingPayment}
+                      className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
+                    >
+                      {isProcessingPayment ? "جاري معالجة العملية..." : "تأكيد وإتمام الدفع الآن ✓"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* SECONDARY SCREEN: VIDEO CALL */}
+              {screen === 'videocall' && (
+                <div className="space-y-3 animate-in fade-in duration-200">
+                  <div className="flex justify-between items-center">
+                    <button onClick={() => setScreen('agenda')} className="px-3 py-1 bg-slate-200 text-slate-800 rounded-lg text-xs font-bold flex items-center gap-1">
+                      <ArrowLeft className="w-3.5 h-3.5" /> العودة للأجندة
+                    </button>
+                    <h3 className="text-xs font-bold text-slate-900">العيادة الافتراضية المباشرة Live</h3>
+                  </div>
+                  <div className="bg-slate-900 text-white p-4 rounded-2xl border border-slate-800 text-center space-y-4">
+                    <div className="w-16 h-16 rounded-full bg-teal-800/80 border-2 border-teal-400 mx-auto flex items-center justify-center text-xl font-bold">
+                      👩‍⚕️
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-white">د. أميرة أحمد الخطيب</h4>
+                      <p className="text-[10px] text-teal-300">أخصائية الصيدلة الإكلينيكية للنساء والتوليد</p>
+                    </div>
+                    <div className="p-3 bg-slate-800 rounded-xl text-xs font-mono text-emerald-400 border border-slate-700">
+                      00:04:12 • اتصال آمن ومشفر 🔒
+                    </div>
+                    <div className="flex justify-center gap-3">
+                      <button onClick={() => setScreen('agenda')} className="p-3 bg-rose-600 hover:bg-rose-700 text-white rounded-full">
+                        <PhoneOff className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+            </div>
           </div>
         )}
 
@@ -1890,7 +2553,7 @@ export default function MobilePatientSimulator({
                     }}
                     className="bg-teal-900/50 text-[11px] text-white border border-teal-500/30 rounded-lg p-1.5 font-bold outline-none cursor-pointer"
                   >
-                    {patients.map(p => (
+                    {effectivePatients.map(p => (
                       <option key={p.nationalId} value={p.nationalId} className="text-slate-800 bg-white">
                         👤 {p.fullName}
                       </option>
@@ -3104,13 +3767,24 @@ export default function MobilePatientSimulator({
             </div>
 
             <div className="space-y-1 text-right">
-              <label className="text-xs font-bold text-slate-700 block text-right">📝 تفاصيل الشكوى المرضية والأعراض الحالية:</label>
+              <div className="flex justify-between items-center mb-1" style={{ direction: "rtl" }}>
+                <label className="text-xs font-bold text-slate-700 block text-right">📝 تفاصيل الشكوى المرضية والأعراض الحالية:</label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBookingComplaint("أعاني من صداع نصفي متكرر مع زغللة بالعين وارتفاع في ضغط الدم، أرغب في استشارة سريرية سريعة لبحث التعديل الدوائي والبدائل المعتمدة.");
+                  }}
+                  className="text-[10px] bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 px-2 py-0.5 rounded-lg font-bold cursor-pointer transition-colors"
+                >
+                  ⚡ تعبئة الشكوى تلقائياً
+                </button>
+              </div>
               <textarea
                 placeholder="يرجى كتابة الشكوى بالتفصيل، الأدوية التي تم تناولها مؤخراً، أو أي تعارضات تشعر بها..."
                 value={bookingComplaint}
                 onChange={(e) => setBookingComplaint(e.target.value)}
                 rows={4}
-                className="w-full text-xs p-2.5 border border-slate-200 rounded-xl outline-none bg-slate-50 text-right focus:bg-white focus:border-teal-500 transition-all"
+                className="w-full text-xs p-2.5 border border-slate-200 rounded-xl outline-none bg-slate-50 text-right focus:bg-white focus:border-teal-500 transition-all text-slate-900 placeholder:text-slate-400"
               />
             </div>
 
@@ -3253,10 +3927,9 @@ export default function MobilePatientSimulator({
                 }}
               >
                 <div className="flex items-center space-x-2 space-x-reverse">
-                  <span className="bg-red-500/20 text-red-300 text-[9px] px-1.5 py-0.5 rounded font-bold">لحالة أحمد علي</span>
-                  <p className="text-[11px] font-bold text-slate-200">صورة روشتة العظام (تحتوي أسبرين وأسيتامينوفين)</p>
+                  <p className="text-[11px] font-bold text-slate-200">صورة روشتة العظام والمفاصل</p>
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1">تختبر تنبيه التحسس المفرط ضد أدوية الساليسيلات للأسبرين في ملف أحمد علي.</p>
+                <p className="text-[10px] text-slate-400 mt-1">روشتة تحتوي على أدوية مسكنات ومضادات التهاب لفحص الأمان السريري.</p>
               </div>
 
               <div className="p-2.5 bg-slate-800 rounded-2xl border border-slate-700 hover:border-teal-500 cursor-pointer text-right transition-all"
@@ -3266,10 +3939,9 @@ export default function MobilePatientSimulator({
                 }}
               >
                 <div className="flex items-center space-x-2 space-x-reverse">
-                  <span className="bg-yellow-500/20 text-yellow-300 text-[9px] px-1.5 py-0.5 rounded font-bold">لحالة سارة ممدوح</span>
-                  <p className="text-[11px] font-bold text-slate-200">صورة روشتة علاج البرد (تحتوي ايبوبروفين وكلارينيز)</p>
+                  <p className="text-[11px] font-bold text-slate-200">صورة روشتة الجهاز التنفسي والبرد</p>
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1">تختبر تعارض الأدوية غير الآمنة مع فترة الحمل والضغط المرتفع.</p>
+                <p className="text-[10px] text-slate-400 mt-1">روشتة تحتوي على مضادات الهيستامين ومخففات الاحتقان لفحص السلامة السريرية.</p>
               </div>
             </div>
 

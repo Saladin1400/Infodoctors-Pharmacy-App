@@ -222,8 +222,14 @@ export const PatientPortalSummaryStats: React.FC<PatientPortalSummaryStatsProps>
                 currentMeds.map((med, idx) => (
                   <div key={idx} className="bg-white p-2 rounded-xl border border-slate-200 flex justify-between items-center">
                     <div>
-                      <strong className="text-slate-900 block text-[11px]">{med.brandName}</strong>
-                      <span className="text-[9.5px] text-slate-500">{med.dose} - {med.frequency}</span>
+                      <strong className="text-slate-900 block text-[11px]">{med.brandName || med.activeIngredient || (med as any).medicationName || "دواء مسجل"}</strong>
+                      <span className="text-[9.5px] text-slate-500">
+                        {med.concentration || (med as any).dose || (med as any).dosage || "محددة"} - {
+                          typeof med.frequency === 'object' && med.frequency !== null
+                            ? `${med.frequency.units || 1} ${med.frequency.type || ''} (${med.frequency.timeframe || ''})`.trim()
+                            : String(med.frequency || "حسب الجدول")
+                        }
+                      </span>
                     </div>
                     <span className="text-[9px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded font-bold border border-emerald-200">
                       نشط 🟢

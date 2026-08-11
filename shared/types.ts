@@ -12,8 +12,8 @@ export type AlcoholLevel = 'None' | 'Occasional' | 'Weekly' | 'Daily' | 'Heavy D
 export type PhysicalActivity = 'Sedentary' | 'Light' | 'Moderate' | 'Heavy' | 'Athlete';
 
 export interface AllergyProfile {
-  drugAllergies: string[]; // ['Aspirin', 'Penicillin', 'Sulfa', 'Others']
-  foodAllergies: string[]; // ['Chocolate', 'Strawberry', 'Banana', 'Gluten', 'Nuts', 'Others']
+  drugAllergies: string[];
+  foodAllergies: string[];
   otherAllergies?: string;
 }
 
@@ -41,13 +41,13 @@ export interface LifestyleHabits {
   alcohol: {
     level: AlcoholLevel;
   };
-  substanceAbuse: string[]; // specific types for DDI checking (anti-abuse checking)
+  substanceAbuse: string[];
   profession: string;
   physicalActivity: PhysicalActivity;
 }
 
 export interface PastSurgery {
-  procedure: string; // Fracture, Appendix, Gallbladder, Tonsils, LASIK, Female Obstetric history with dates
+  procedure: string;
   date: string;
   surgeonOrHospital?: string;
 }
@@ -56,7 +56,7 @@ export interface MedicalHistory {
   surgeries: PastSurgery[];
   acuteIllnesses: { condition: string; date: string; recovered: boolean }[];
   chronicDiseases: {
-    disease: string; // Diabetes Type 1, Diabetes Type 2, Hypertension, Rheumatism, Asthma, etc.
+    disease: string;
     status: 'Stable' | 'Uncontrolled' | 'Newly Diagnosed';
     sinceYear?: string;
   }[];
@@ -65,14 +65,14 @@ export interface MedicalHistory {
 export interface CurrentMedication {
   activeIngredient: string;
   brandName: string;
-  dosageForm: string; // Tablet, Capsule, Suppository, Syrup, Inhaler, Injection
-  concentration: string; // e.g. 500mg, 5ml, 10mg
+  dosageForm: string;
+  concentration: string;
   frequency: {
-    units: number; // e.g. 1, 2
+    units: number;
     type: 'tablet' | 'capsule' | 'suppository' | 'spoon' | 'puff' | 'injection';
-    timeframe: string; // hours, daily, weekly, custom
+    timeframe: string;
   };
-  instructions?: string; // e.g. before food, after food
+  instructions?: string;
 }
 
 export interface LabResult {
@@ -91,24 +91,21 @@ export interface ScanResult {
   imageSlotUrl?: string;
 }
 
-// Complete Patient Profile (السجل الصحي)
 export interface PatientProfile {
-  nationalId: string; // Unique National ID or Passport Number
+  nationalId: string;
   fullName: string;
   email: string;
   phonePrimary: string;
   phoneBackup?: string;
-  dob: string; // YYYY-MM-DD for dynamic Age formula
-  profilePhotoUrl?: string; // Base64 data URL or photo link
+  dob: string;
+  profilePhotoUrl?: string;
   address: {
     country: string;
-    governorate: string; // Modern Egyptian Governorates (e.g., Cairo, Giza, Alexandria)
+    governorate: string;
     city: string;
     district: string;
   };
   religion: 'Muslim' | 'Christian' | 'Jewish' | 'Hindu' | 'Buddhist' | 'Other';
-  
-  // Health Metrics
   gender: Gender;
   maritalStatus: MaritalStatus;
   sexualActivity: SexualActivity;
@@ -117,10 +114,9 @@ export interface PatientProfile {
     weeks?: number;
     isLactating: boolean;
   };
-  height: number; // in cm
-  weight: number; // in kg
+  height: number;
+  weight: number;
   bloodGroup: 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-';
-  
   allergies: AllergyProfile;
   lifestyle: LifestyleHabits;
   vision?: {
@@ -135,7 +131,6 @@ export interface PatientProfile {
   dependentsCount?: number;
 }
 
-// Specialty List
 export type ApprovedSpecialty =
   | 'OB-GYN'
   | 'Pediatrics'
@@ -179,46 +174,43 @@ export const ApprovedSpecialtiesList: { key: ApprovedSpecialty; ar: string }[] =
   { key: 'Sexual Health', ar: 'صحة جنسية' },
 ];
 
-// Consultation Model (طلب استشارة)
 export interface OtcConsultation {
   id: string;
   patientId: string;
   patientName: string;
   specialty: ApprovedSpecialty;
   complaintSummary: string;
-  appointmentTime: string; // 20-min slots
+  appointmentTime: string;
   paymentStatus: 'Pending' | 'Paid';
-  paymentAmount: number; // EGP
+  paymentAmount: number;
   status: 'In-Waiting' | 'Ongoing' | 'Completed';
   reportId?: string;
   googleMeetUrl?: string;
   createdAt: string;
 }
 
-// Request Revision Model (طلب مراجعة وصفة طبية)
 export interface PrescriptionRevision {
   id: string;
   patientId: string;
   patientName: string;
   specialty: ApprovedSpecialty;
-  prescriptionImageUrl: string; // mock image slot base64 or placeholder
+  prescriptionImageUrl: string;
   appointmentTime: string;
   paymentStatus: 'Pending' | 'Paid';
-  paymentAmount: number; // EGP
+  paymentAmount: number;
   status: 'In-Waiting' | 'Ongoing' | 'Completed';
   reportId?: string;
   googleMeetUrl?: string;
   createdAt: string;
 }
 
-// Medication management
 export interface MedicationManagementPlan {
   id: string;
   patientId: string;
   patientName: string;
   appointmentTime: string;
   paymentStatus: 'Pending' | 'Paid';
-  paymentAmount: number; // EGP
+  paymentAmount: number;
   status: 'In-Waiting' | 'Completed';
   timetable?: TimetableItem[];
   googleMeetUrl?: string;
@@ -231,23 +223,20 @@ export interface TimetableItem {
   brandName: string;
   dosageForm: string;
   dose: string;
-  timeOfDay: string; // e.g. "08:00", "20:00"
+  timeOfDay: string;
   foodRelation: 'Before Food' | 'After Food' | 'With Food' | 'Empty Stomach' | 'No Special Timing';
   specialInstructions: string;
   notificationTriggered: boolean;
 }
 
-// Clinical Report fields
 export interface ClinicalReport {
   id: string;
-  serviceId: string; // reference to OTC consultation or Prescription Revision list
+  serviceId: string;
   serviceType: 'OTC_CONSULTATION' | 'PRESCRIPTION_REVISION' | 'MED_MANAGEMENT';
   patientId: string;
   createdAt: string;
   pharmacistName: string;
-  edaComplianceVerified: boolean; // EDA (Egyptian Drug Authority) compliance affirmation
-  
-  // Service A specific fields:
+  edaComplianceVerified: boolean;
   otcFields?: {
     chiefComplaint: string;
     behavioralRecommendations: string;
@@ -265,26 +254,24 @@ export interface ClinicalReport {
       referralDetails?: string;
     };
   };
-
-  // Service B specific fields:
   revisionFields?: {
     diagnosis: string;
     treatingPhysician: string;
     treatingSpecialty: string;
-    drugDiagnosisMatch: string; // Yes / No / Borderline and comments
-    dosageVerification: string; // Fits profile, age, height, weight
+    drugDiagnosisMatch: string;
+    dosageVerification: string;
     drugDrugInteractions: 'Red' | 'Yellow' | 'Green';
-    interactionDetails: string; // explanation of specific risks
-    therapeuticDuplication: string; // flagged duplicate ingredients
-    unnecessaryMedications: string[]; // drugs recommended to stop
-    omittedMedications: string[]; // missing essential medications
+    interactionDetails: string;
+    therapeuticDuplication: string;
+    unnecessaryMedications: string[];
+    omittedMedications: string[];
     administrationGuidelines: Array<{
       activeIngredient: string;
       brandName: string;
       dosageForm: string;
       dose: string;
       duration: string;
-      foodRelation: string; // e.g. "Take post-meal with plenty of water"
+      foodRelation: string;
       precautions: string;
     }>;
   };
@@ -311,38 +298,37 @@ export interface PharmacistReview {
   id: string;
   patientName: string;
   patientAvatar?: string;
-  rating: number; // 1 to 5 stars
+  rating: number;
   date: string;
   comment: string;
-  serviceType?: string; // e.g., 'OTC Consultation' | 'Prescription Audit' | 'Medication Plan'
+  serviceType?: string;
 }
 
 export interface PharmacistProfile {
   id?: string;
   fullName: string;
-  licenseNumber: string; // e.g. LIC-12345
+  licenseNumber: string;
   specialty: ApprovedSpecialty;
   degree: PharmacistDegree;
   country: string;
-  governorate: string; // governorate of Egypt
+  governorate: string;
   city: string;
   photoUrl?: string;
   bio?: string;
   experienceYears?: number;
-  certificates?: string[]; // Professional Certificates (e.g., PharmD, BCPS, DUR Fellowship)
-  rating?: number; // e.g., 4.9
+  certificates?: string[];
+  rating?: number;
   reviewCount?: number;
   totalConsultations?: number;
   reviews?: PharmacistReview[];
   status?: 'online' | 'offline';
 }
 
-// Admin Operational Dashboard Metrics
 export interface OperationalMetrics {
   totalRevenue: number;
   totalConsultations: number;
   completedRevisions: number;
-  activeCampaignDiscount: number; // e.g. 15 for 15% off
+  activeCampaignDiscount: number;
   basePricing: {
     otcConsultation: number;
     prescriptionRevision: number;
@@ -365,11 +351,10 @@ export interface OperationalMetrics {
   paymentTransactions?: PaymentTransaction[];
 }
 
-// Unified Notification Model (إشعار المنظومة والمنبهات)
 export interface AppNotification {
   id: string;
   recipient: 'patient' | 'pharmacist' | 'all';
-  patientId?: string; // If specific to one patient NID
+  patientId?: string;
   title: string;
   body: string;
   type: 'PillReminder' | 'NewBooking' | 'ReportSigned' | 'General';
@@ -390,11 +375,10 @@ export interface UserAccount {
   passwordHash: string;
   role: 'patient' | 'pharmacist' | 'admin';
   fullName: string;
-  nationalId?: string; // for patients (associates with PatientProfile)
-  licenseNumber?: string; // for pharmacists
+  nationalId?: string;
+  licenseNumber?: string;
   securityQuestion?: string;
   securityAnswerHash?: string;
   createdAt: string;
   isFrozen?: boolean;
 }
-

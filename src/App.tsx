@@ -13,6 +13,7 @@ import MobilePatientSimulator from "./components/MobilePatientSimulator";
 import PharmacistWorkspace from "./components/PharmacistWorkspace";
 import AdminPanel from "./components/AdminPanel";
 import { PatientProfile } from "./types";
+import { DEFAULT_PATIENTS } from "./defaultData";
 import { useLanguage, LanguageSwitcher } from "./LanguageContext";
 
 export default function App() {
@@ -72,7 +73,7 @@ export default function App() {
 
   
   // Real patient records fetched from custom API
-  const [patients, setPatients] = useState<PatientProfile[]>([]);
+  const [patients, setPatients] = useState<PatientProfile[]>(DEFAULT_PATIENTS);
   const [activePatientId, setActivePatientId] = useState<string>("29010151234567");
   const [isLoadingPatients, setIsLoadingPatients] = useState(false);
 
@@ -87,9 +88,6 @@ export default function App() {
   const [adminPinInput, setAdminPinInput] = useState("");
   const [adminPinError, setAdminPinError] = useState<string | null>(null);
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
-
-  // Demo Drawer Toggle (Collapsible for testing scenarios)
-  const [showDemoDrawer, setShowDemoDrawer] = useState(false);
 
   // Stats indicator inside the main workspace
   const [updatesCounter, setUpdatesCounter] = useState(0);
@@ -227,12 +225,12 @@ export default function App() {
                 <span>{isRtl ? "إنفو دكتورز" : "Info Doctors"}</span>
                 <span className="text-[10px] bg-teal-500/20 text-teal-300 px-2 py-0.5 rounded-full font-mono border border-teal-500/30">
                   {activePortal === 'pharmacist' 
-                    ? t('portal.pharmacist', 'مستودع الصيدلي') 
+                    ? t('portal.pharmacist', 'مكتب الدكتور الصيدلي') 
                     : activePortal === 'patient' 
-                      ? t('portal.patient', 'تطبيق المريض') 
+                      ? t('portal.patient', 'تطبيق المستخدم') 
                       : activePortal === 'admin' 
                         ? t('portal.admin', 'لوحة الإدارة') 
-                        : (isRtl ? 'المنصة الطبية' : 'Medical Platform')}
+                        : (isRtl ? 'منصة الرعاية الصحية' : 'Healthcare Platform')}
                 </span>
               </h1>
               <p className="text-[10.5px] text-slate-400 font-medium">
@@ -293,76 +291,12 @@ export default function App() {
                   <span>{t('portal.admin', 'لوحة الإدارة')}</span>
                 </button>
               )}
-
-              {/* Optional Demo Scenarios Drawer Button */}
-              <button
-                onClick={() => setShowDemoDrawer(!showDemoDrawer)}
-                className="bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold px-2.5 py-1.5 rounded-xl border border-amber-500/30 transition-all flex items-center gap-1 text-xs cursor-pointer focus:outline-none"
-                title={isRtl ? "تفعيل لوحة الحالات الاختبارية التجريبية" : "Toggle test cases panel"}
-              >
-                <Sliders className="w-3.5 h-3.5 text-amber-400" />
-                <span className="hidden md:inline">{isRtl ? "حالات الاختبار" : "Test Cases"}</span>
-              </button>
             </div>
 
           </div>
 
         </div>
       </header>
-
-      {/* DEMO DRAWER (Collapsible top banner for reviewers testing specific medical scenarios) */}
-      {showDemoDrawer && (
-        <div className="bg-amber-950/90 border-b border-amber-800/60 text-amber-100 p-3 px-6 text-right animate-in slide-in-from-top duration-200" style={{ direction: "rtl" }}>
-          <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3 text-xs">
-            <div className="flex items-center space-x-2 space-x-reverse">
-              <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
-              <div>
-                <strong className="text-white block">لوحة الحالات والسيناريوهات التجريبية للتدقيق الإكلينيكي:</strong>
-                <span className="text-amber-200/80 text-[11px]">يمكنك الضغط على إحدى الحالات أدناه للتبديل الفوري واستعراض تفاعل الذكاء الاصطناعي مع الحساسية والحمل:</span>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-2 space-x-reverse">
-              <button
-                onClick={() => {
-                  setActivePatientId("29010151234567");
-                  setActivePortal('patient');
-                  setShowDemoDrawer(false);
-                }}
-                className={`px-3 py-1.5 rounded-xl font-bold border transition-all cursor-pointer ${
-                  activePatientId === "29010151234567" && activePortal === 'patient'
-                    ? "bg-red-600 text-white border-red-400 shadow-sm"
-                    : "bg-slate-900/80 text-amber-200 border-amber-800/60 hover:bg-slate-800"
-                }`}
-              >
-                1. أحمد محمد علي (حساسية أسبرين) ⚠️
-              </button>
-
-              <button
-                onClick={() => {
-                  setActivePatientId("29505202712345");
-                  setActivePortal('patient');
-                  setShowDemoDrawer(false);
-                }}
-                className={`px-3 py-1.5 rounded-xl font-bold border transition-all cursor-pointer ${
-                  activePatientId === "29505202712345" && activePortal === 'patient'
-                    ? "bg-rose-600 text-white border-rose-400 shadow-sm"
-                    : "bg-slate-900/80 text-amber-200 border-amber-800/60 hover:bg-slate-800"
-                }`}
-              >
-                2. سارة ممدوح (حامل - فحص الأدوية) 🤰
-              </button>
-
-              <button
-                onClick={() => setShowDemoDrawer(false)}
-                className="text-slate-400 hover:text-white p-1 focus:outline-none"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Main Body Layout */}
       <main className="flex-1 w-full max-w-7xl mx-auto p-4 md:p-6 lg:p-8 flex flex-col justify-center">
@@ -375,10 +309,10 @@ export default function App() {
             <div className="text-center space-y-3 bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
               <div className="inline-flex items-center space-x-2 space-x-reverse bg-teal-50 text-teal-800 px-3 py-1 rounded-full text-xs font-black border border-teal-200/60">
                 <Sparkles className="w-3.5 h-3.5 text-teal-600" />
-                <span>اختر البوابة الطبية للبدء مباشرة</span>
+                <span>اختر البوابة للبدء مباشرة</span>
               </div>
               <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
-                أهلاً بك في منصة الرعاية الصيدلانية الموحدة
+                أهلاً بك في منصة الرعاية الصحية
               </h2>
               <p className="text-xs md:text-sm text-slate-500 max-w-2xl mx-auto leading-relaxed">
                 تطبيق متكامل يتيح للمرضى حجز الاستشارات ورفع الملفات، ويمنح الصيادلة أدوات التدقيق الدوائي بالذكاء الاصطناعي (DUR) وإصدار التقارير المعتمدة، مع لوحة إدارة مركزية.
@@ -395,8 +329,8 @@ export default function App() {
                     <Phone className="w-6 h-6" />
                   </div>
                   <div>
-                    <span className="text-[10px] bg-teal-50 text-teal-800 border border-teal-200 px-2 py-0.5 rounded font-bold">بوابة الجمهور والمرضى</span>
-                    <h3 className="text-lg font-black text-slate-850 mt-1 text-center">تطبيق المريض (Mobile App)</h3>
+                    <span className="text-[10px] bg-teal-50 text-teal-800 border border-teal-200 px-2 py-0.5 rounded font-bold">بوابة الجمهور</span>
+                    <h3 className="text-lg font-black text-slate-900 mt-1 text-center">تطبيق المستخدم</h3>
                   </div>
                   <p className="text-xs text-slate-500 leading-relaxed">
                     من خلال هذه البوابة يمكن للمريض تسجيل حساب جديد، إضافة المرافقين، حجز استشارات OTC، تتبع منبهات الأدوية، واستلام التقارير الطبية المعتمدة.
@@ -408,13 +342,19 @@ export default function App() {
                     onClick={() => setActivePortal('patient')}
                     className="w-full bg-teal-600 hover:bg-teal-700 text-white font-extrabold py-3 px-4 rounded-2xl text-xs transition-all flex items-center justify-center space-x-2 space-x-reverse shadow-md shadow-teal-600/15 cursor-pointer focus:outline-none"
                   >
-                    <span>الدخول لبوابة المريض</span>
+                    <span>الدخول لبوابة المستخدم</span>
                     <ChevronRight className="w-4 h-4 rotate-180" />
                   </button>
 
                   {patientUser && (
-                    <div className="text-[10.5px] text-center text-teal-700 font-bold bg-teal-50 p-1.5 rounded-xl border border-teal-100">
-                      جلسة نشطة: {patientUser.fullName || patientUser.email}
+                    <div className="text-[10.5px] text-teal-700 font-bold bg-teal-50 p-2 rounded-xl border border-teal-100 flex items-center justify-between px-3">
+                      <span>جلسة نشطة: {patientUser.fullName || patientUser.email}</span>
+                      <button 
+                        onClick={handlePatientLogout}
+                        className="text-rose-600 hover:text-rose-700 font-bold hover:underline cursor-pointer text-[10px]"
+                      >
+                        تسجيل الخروج ✕
+                      </button>
                     </div>
                   )}
                 </div>
@@ -429,7 +369,7 @@ export default function App() {
                     </div>
                     <div>
                       <span className="text-[10px] bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded font-bold">مختصي الصيدلة الإكلينيكية</span>
-                      <h3 className="text-lg font-black text-slate-850 mt-1 text-center">مستودع الصيدلي (Workspace)</h3>
+                      <h3 className="text-lg font-black text-slate-900 mt-1 text-center">مكتب الدكتور الصيدلي</h3>
                     </div>
                     <p className="text-xs text-slate-500 leading-relaxed">
                       مساحة عمل الصيدلي لفحص الروشتات وطابور الاستشارات المباشرة، إجراء الفحص الآلي للتعارضات الدوائية والحساسية بالذكاء الاصطناعي، وتوثيق التقارير.
@@ -441,13 +381,19 @@ export default function App() {
                       onClick={() => setActivePortal('pharmacist')}
                       className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold py-3 px-4 rounded-2xl text-xs transition-all flex items-center justify-center space-x-2 space-x-reverse shadow-md shadow-emerald-600/15 cursor-pointer focus:outline-none"
                     >
-                      <span>الدخول لمستودع الصيدلي</span>
+                      <span>الدخول إلى المكتب</span>
                       <ChevronRight className="w-4 h-4 rotate-180" />
                     </button>
 
                     {pharmacistUser && (
-                      <div className="text-[10.5px] text-center text-emerald-700 font-bold bg-emerald-50 p-1.5 rounded-xl border border-emerald-100">
-                        جلسة نشطة: د. {pharmacistUser.fullName || pharmacistUser.email}
+                      <div className="text-[10.5px] text-emerald-700 font-bold bg-emerald-50 p-2 rounded-xl border border-emerald-100 flex items-center justify-between px-3">
+                        <span>جلسة نشطة: د. {pharmacistUser.fullName || pharmacistUser.email}</span>
+                        <button 
+                          onClick={handlePharmacistLogout}
+                          className="text-rose-600 hover:text-rose-700 font-bold hover:underline cursor-pointer text-[10px]"
+                        >
+                          تسجيل الخروج ✕
+                        </button>
                       </div>
                     )}
                   </div>

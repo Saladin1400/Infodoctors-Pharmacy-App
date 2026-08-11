@@ -46,6 +46,8 @@ export default function PharmacistWorkspace({
   const [revisionCases, setRevisionCases] = useState<PrescriptionRevision[]>([]);
   const [mmpCases, setMmpCases] = useState<MedicationManagementPlan[]>([]);
   const [activeTab, setActiveTab] = useState<'OTC' | 'REV' | 'MMP'>('OTC');
+  const [caseStatusFilter, setCaseStatusFilter] = useState<'waiting' | 'previous'>('waiting');
+  const [sidebarNav, setSidebarNav] = useState<'cases' | 'profile' | 'finance'>('cases');
   
   // App Notifications states
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -684,8 +686,10 @@ export default function PharmacistWorkspace({
   };
 
   const processedCases = useMemo(() => {
-    const currentList = activeTab === 'OTC' ? otcCases : activeTab === 'REV' ? revisionCases : mmpCases;
-    let list = [...currentList];
+    const rawList = activeTab === 'OTC' ? otcCases : activeTab === 'REV' ? revisionCases : mmpCases;
+    let list = caseStatusFilter === 'waiting'
+      ? rawList.filter(c => c.status !== 'Completed')
+      : rawList.filter(c => c.status === 'Completed');
     
     // 1. Filter by severity if active
     if (severityFilter !== 'ALL') {
@@ -703,18 +707,21 @@ export default function PharmacistWorkspace({
     }
 
     return list;
-  }, [otcCases, revisionCases, mmpCases, activeTab, severityFilter, sortBySeverity, patients]);
+  }, [otcCases, revisionCases, mmpCases, activeTab, caseStatusFilter, severityFilter, sortBySeverity, patients]);
 
   // Calculate distinct counts dynamically for tabs
   const severityCounts = useMemo(() => {
-    const currentList = activeTab === 'OTC' ? otcCases : activeTab === 'REV' ? revisionCases : mmpCases;
+    const rawList = activeTab === 'OTC' ? otcCases : activeTab === 'REV' ? revisionCases : mmpCases;
+    const currentList = caseStatusFilter === 'waiting'
+      ? rawList.filter(c => c.status !== 'Completed')
+      : rawList.filter(c => c.status === 'Completed');
     const counts = { ALL: currentList.length, Red: 0, Yellow: 0, Green: 0 };
     currentList.forEach(c => {
       const sev = getCaseSeverity(c);
       counts[sev] = (counts[sev] || 0) + 1;
     });
     return counts;
-  }, [otcCases, revisionCases, mmpCases, activeTab, patients]);
+  }, [otcCases, revisionCases, mmpCases, activeTab, caseStatusFilter, patients]);
 
   // Auto-select first matching case when activeTab or severityFilter changes
   useEffect(() => {
@@ -1264,7 +1271,8 @@ export default function PharmacistWorkspace({
   };
 
   // Queue visual metrics
-  const pendingCount = (otcCases.filter(c => c.status === "In-Waiting").length + revisionCases.filter(c => c.status === "In-Waiting").length + mmpCases.filter(c => c.status === "In-Waiting").length);
+  const pendingCount = (otcCases.filter(c => c.status !== "Completed").length + revisionCases.filter(c => c.status !== "Completed").length + mmpCases.filter(c => c.status !== "Completed").length);
+  const completedCount = (otcCases.filter(c => c.status === "Completed").length + revisionCases.filter(c => c.status === "Completed").length + mmpCases.filter(c => c.status === "Completed").length);
 
   const allActiveAppointments = [
     ...otcCases.filter(c => c.status !== "Completed").map(c => ({...c, typeLabel: "استشارة OTC مباشرة", type: "OTC"})),
@@ -1320,65 +1328,44 @@ export default function PharmacistWorkspace({
 
           {/* Portals Upper Header & Queue indicators */}
       <div className="flex justify-between items-center border-b border-slate-800 pb-4 mb-4" style={{ direction: "rtl" }}>
+        {/* Right Section: Pharmacist Photo, Name, and License Number */}
         <div className="flex items-center space-x-3 space-x-reverse text-right">
-          <div className="p-2.5 bg-teal-500/10 text-teal-400 rounded-2xl border border-teal-500/20">
-            <BookOpen className="w-5 h-5" />
+          <div className="relative">
+            <img
+              src={currentUser?.avatarUrl || currentUser?.profileImage || "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=150&auto=format&fit=crop&q=80"}
+              alt={pharmacistName}
+              referrerPolicy="no-referrer"
+              className="w-11 h-11 rounded-2xl border-2 border-teal-500/80 object-cover shadow-md shadow-teal-950/50"
+            />
+            <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-slate-900 rounded-full animate-pulse" title="متصل"></span>
           </div>
           <div>
-            <h1 className="text-lg font-extrabold text-white tracking-tight">محطة تدقيق وتوقيع الصيدلي الإكلينيكي</h1>
-            <p className="text-xs text-slate-400">توفيق الروشتات العيادية والتحقق من DDIs وحساسيات المرضى (معايير EDA)</p>
+            <h1 className="text-base font-extrabold text-white tracking-tight flex items-center space-x-2 space-x-reverse">
+              <span>مكتب د. {(currentUser?.fullName || pharmacistName || "الصيدلي الإكلينيكي").replace(/^د[\.\/]\s*/, '')}</span>
+            </h1>
+            <p className="text-[11px] text-teal-400 font-bold flex items-center space-x-1 space-x-reverse">
+              <span>ت.م.م:</span>
+              <span className="font-mono text-slate-200 dir-ltr">{currentUser?.licenseNumber || profileLicense || "LIC-EG-2026-8891"}</span>
+            </p>
           </div>
         </div>
 
+        {/* Left Section: Notifications Button + Logout + Bell Popover */}
         <div className="flex items-center space-x-2.5 space-x-reverse font-sans">
-          <div className="hidden md:flex flex-col text-left items-end pl-2">
-            <span className="text-[11px] text-teal-400 font-bold flex items-center space-x-1">
-              <span>{currentUser?.email}</span>
-              <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full inline-block animate-pulse ml-1"></span>
-            </span>
-            <span className="text-[10px] text-slate-500 font-bold">صيدلي مرخص • مؤمن بـ JWT</span>
-          </div>
-
-          <button
-            onClick={() => setShowProfileModal(true)}
-            className="flex items-center space-x-1.5 space-x-reverse px-3 py-2 bg-teal-950/40 hover:bg-teal-900/60 border border-teal-800/40 rounded-2xl cursor-pointer text-teal-300 hover:text-white font-bold text-xs transition-all focus:outline-none"
-            title="تحديث واستعراض البيانات المهنية للصيدلي"
-          >
-            <UserCheck className="w-3.5 h-3.5" />
-            <span>الملف المهني</span>
-          </button>
-
-          <button
-            onClick={() => setShowFinanceModal(true)}
-            className="flex items-center space-x-1.5 space-x-reverse px-3 py-2 bg-indigo-950/40 hover:bg-indigo-900/60 border border-indigo-800/40 rounded-2xl cursor-pointer text-indigo-300 hover:text-white font-bold text-xs transition-all focus:outline-none"
-            title="استعراض المعاملات المالية وعمولات الصيدلي"
-          >
-            <DollarSign className="w-3.5 h-3.5 text-indigo-400" />
-            <span>المعاملات والعمولات</span>
-          </button>
-
-          <button
-            onClick={() => setShowPerformanceModal(true)}
-            className="flex items-center space-x-1.5 space-x-reverse px-3 py-2 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-800/40 rounded-2xl cursor-pointer text-emerald-300 hover:text-white font-bold text-xs transition-all focus:outline-none"
-            title="مراقبة الأداء السريري ومعدل سرعة الاستجابة والإنتاجية"
-          >
-            <Gauge className="w-3.5 h-3.5 text-emerald-400" />
-            <span>لوحة الأداء والإنتاجية</span>
-          </button>
-
+          
           <button
             onClick={() => setShowPushConfigModal(true)}
             className="flex items-center space-x-1.5 space-x-reverse px-3 py-2 bg-indigo-950/40 hover:bg-indigo-900/60 border border-indigo-800/40 rounded-2xl cursor-pointer text-indigo-300 hover:text-white font-bold text-xs transition-all focus:outline-none"
-            title="إعداد بوابة إشعارات الدفع الفوري (FCM/Web Push)"
+            title="إعدادات وبوابة الإشعارات الفورية"
           >
             <Bell className="w-3.5 h-3.5 text-indigo-400" />
-            <span>بوابة الإشعارات والـ FCM</span>
+            <span>الإشعارات</span>
           </button>
 
           <button
             onClick={onLogout}
             className="flex items-center space-x-1.5 space-x-reverse px-3 py-2 bg-rose-950/30 hover:bg-rose-900/50 border border-rose-900/30 rounded-2xl cursor-pointer text-rose-400 hover:text-white font-bold text-xs transition-all focus:outline-none"
-            title="تسجيل الخروج وإنهاء جلسة JWT"
+            title="تسجيل الخروج وإنهاء الجلسة"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">خروج</span>
@@ -1386,114 +1373,203 @@ export default function PharmacistWorkspace({
 
           {/* Real-time In-App Notifications Bell for Pharmacist */}
           <div className="relative z-50">
-          <button 
-            onClick={() => setShowNotifPopover(!showNotifPopover)}
-            className="relative p-2.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-2xl cursor-pointer text-slate-300 hover:text-white transition-all flex items-center justify-center font-sans focus:outline-none"
-          >
-            <Bell className="w-5 h-5 text-teal-400" />
-            {notifications.filter(n => !n.read).length > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-rose-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center border border-slate-900 animate-pulse">
-                {notifications.filter(n => !n.read).length}
-              </span>
-            )}
-          </button>
-          
-          {showNotifPopover && (
-            <div className="absolute left-0 mt-2 w-[340px] bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl p-3.5 space-y-2 z-50 text-right">
-              <div className="flex justify-between items-center border-b border-slate-900 pb-2">
-                <button 
-                  onClick={async () => {
-                    const unread = notifications.filter(n => !n.read);
-                    await Promise.all(unread.map(n => markNotifAsRead(n.id)));
-                  }}
-                  className="text-[10px] text-teal-400 hover:text-teal-300 font-bold"
-                >
-                  تحديد الكل كمقروء
-                </button>
-                <span className="text-xs font-extrabold text-white">🔔 تنبيهات وبلاغات الحالات</span>
-              </div>
-              
-              <div className="space-y-1.5 max-h-[260px] overflow-y-auto">
-                {notifications.length === 0 ? (
-                  <div className="text-center py-6 text-xs text-slate-500">لا توجد إخطارات واردة حالياً.</div>
-                ) : (
-                  notifications.map(n => (
-                    <div 
-                      key={n.id}
-                      onClick={() => {
-                        markNotifAsRead(n.id);
-                        if (n.metadata?.serviceId) {
-                          const isOtc = n.metadata.serviceId.startsWith("OTC");
-                          setActiveTab(isOtc ? "OTC" : "REV");
-                          setSelectedCaseId(n.metadata.serviceId);
-                        }
-                        setShowNotifPopover(false);
-                      }}
-                      className={`p-2.5 rounded-xl text-right cursor-pointer border text-[11px] leading-snug transition-all ${
-                        n.read 
-                          ? "bg-slate-900/40 border-slate-900/60 text-slate-500" 
-                          : "bg-slate-900 border-teal-950/80 text-slate-200 hover:border-teal-500"
-                      }`}
-                    >
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="text-[9px] text-slate-500 font-mono">
-                          {new Date(n.createdAt).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}
-                        </span>
-                        <span className={`font-bold ${n.read ? "text-slate-400" : "text-teal-400 font-bold"}`}>{n.title}</span>
+            <button 
+              onClick={() => setShowNotifPopover(!showNotifPopover)}
+              className="relative p-2.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-2xl cursor-pointer text-slate-300 hover:text-white transition-all flex items-center justify-center font-sans focus:outline-none"
+            >
+              <Bell className="w-5 h-5 text-teal-400" />
+              {notifications.filter(n => !n.read).length > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-rose-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center border border-slate-900 animate-pulse">
+                  {notifications.filter(n => !n.read).length}
+                </span>
+              )}
+            </button>
+            
+            {showNotifPopover && (
+              <div className="absolute left-0 mt-2 w-[340px] bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl p-3.5 space-y-2 z-50 text-right">
+                <div className="flex justify-between items-center border-b border-slate-900 pb-2">
+                  <button 
+                    onClick={async () => {
+                      const unread = notifications.filter(n => !n.read);
+                      await Promise.all(unread.map(n => markNotifAsRead(n.id)));
+                    }}
+                    className="text-[10px] text-teal-400 hover:text-teal-300 font-bold"
+                  >
+                    تحديد الكل كمقروء
+                  </button>
+                  <span className="text-xs font-extrabold text-white">🔔 تنبيهات وبلاغات الحالات</span>
+                </div>
+                
+                <div className="space-y-1.5 max-h-[260px] overflow-y-auto">
+                  {notifications.length === 0 ? (
+                    <div className="text-center py-6 text-xs text-slate-500">لا توجد إخطارات واردة حالياً.</div>
+                  ) : (
+                    notifications.map(n => (
+                      <div 
+                        key={n.id}
+                        onClick={() => {
+                          markNotifAsRead(n.id);
+                          if (n.metadata?.serviceId) {
+                            const isOtc = n.metadata.serviceId.startsWith("OTC");
+                            setActiveTab(isOtc ? "OTC" : "REV");
+                            setSelectedCaseId(n.metadata.serviceId);
+                          }
+                          setShowNotifPopover(false);
+                        }}
+                        className={`p-2.5 rounded-xl text-right cursor-pointer border text-[11px] leading-snug transition-all ${
+                          n.read 
+                            ? "bg-slate-900/40 border-slate-900/60 text-slate-500" 
+                            : "bg-slate-900 border-teal-950/80 text-slate-200 hover:border-teal-500"
+                        }`}
+                      >
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-[9px] text-slate-500 font-mono">
+                            {new Date(n.createdAt).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                          <span className={`font-bold ${n.read ? "text-slate-400" : "text-teal-400 font-bold"}`}>{n.title}</span>
+                        </div>
+                        <p className="text-[10.5px] leading-relaxed text-slate-300">{n.body}</p>
                       </div>
-                      <p className="text-[10.5px] leading-relaxed text-slate-350">{n.body}</p>
-                    </div>
-                  ))
-                )}
+                    ))
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
-
-         {/* Pharmacist Name Input Banner */}
-         <div className="flex items-center space-x-1 justify-end font-sans">
-           <input 
-             type="text" 
-             value={pharmacistName} 
-             onChange={(e) => setPharmacistName(e.target.value)}
-             className="bg-slate-950 text-right text-xs max-w-[240px] border border-slate-800 rounded-lg p-2 text-teal-300 font-bold focus:border-teal-400 hover:bg-slate-900 transition-all"
-           />
-           <LabelText text="الصيدلي المدقق:" />
-         </div>
-       </div>
 
        {/* Main Core Desktop Body divided: LEFT/RIGHT Split screen */}
        <div className="flex-1 flex space-x-4 overflow-hidden" style={{ direction: "rtl" }}>
          
-         {/* SIDE BAR: In-Waiting Case Triage Queue */}
-         <div className="w-[360px] bg-slate-950 rounded-2xl p-3 border border-slate-800 flex flex-col justify-between">
-           <div className="space-y-3">
-             <div className="flex justify-between items-center px-1">
-               <span className="bg-amber-600/20 text-amber-400 text-[10px] px-2.5 py-0.5 rounded-full font-bold">
-                 {pendingCount} في الانتظار
-               </span>
-               <h3 className="font-bold text-slate-300 text-xs flex items-center space-x-1.5 space-x-reverse">
-                 <Users className="w-3.5 h-3.5 text-teal-400" />
-                 <span>طابور تصفية وتصنيف الحالات</span>
-               </h3>
+         {/* SIDEBAR NAVIGATION CONTROL BAR */}
+         <div className="w-16 md:w-52 bg-slate-950 rounded-2xl p-2.5 border border-slate-800 flex flex-col justify-between space-y-2 shrink-0">
+           <div className="space-y-2">
+             <div className="px-2 py-1.5 hidden md:block border-b border-slate-900 mb-1">
+               <span className="text-[10px] text-teal-400 font-black uppercase tracking-wider block">قائمة التصفح</span>
              </div>
 
-             {/* Specialty Quick Filter Tabs internally in widget */}
+             {/* 1. الحالات */}
+             <button
+               type="button"
+               onClick={() => setSidebarNav('cases')}
+               className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl font-extrabold text-xs transition-all ${
+                 sidebarNav === 'cases'
+                   ? 'bg-teal-600 text-white shadow-md shadow-teal-950/40'
+                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+               }`}
+             >
+               <div className="flex items-center space-x-2 space-x-reverse">
+                 <Users className="w-4 h-4 shrink-0 text-teal-300" />
+                 <span className="hidden md:inline">الحالات</span>
+               </div>
+               {pendingCount > 0 && (
+                 <span className="hidden md:inline-block text-[9.5px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/30 font-bold">
+                   {pendingCount}
+                 </span>
+               )}
+             </button>
+
+             {/* 2. لوحة الأداء والإنتاجية */}
+             <button
+               type="button"
+               onClick={() => setSidebarNav('performance')}
+               className={`w-full flex items-center space-x-2 space-x-reverse px-3 py-2.5 rounded-xl font-extrabold text-xs transition-all ${
+                 sidebarNav === 'performance'
+                   ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950/40'
+                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+               }`}
+             >
+               <Gauge className="w-4 h-4 shrink-0 text-emerald-300" />
+               <span className="hidden md:inline">لوحة الأداء والإنتاجية</span>
+             </button>
+
+             {/* 3. الملف المهني */}
+             <button
+               type="button"
+               onClick={() => setSidebarNav('profile')}
+               className={`w-full flex items-center space-x-2 space-x-reverse px-3 py-2.5 rounded-xl font-extrabold text-xs transition-all ${
+                 sidebarNav === 'profile'
+                   ? 'bg-teal-600 text-white shadow-md shadow-teal-950/40'
+                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+               }`}
+             >
+               <UserCheck className="w-4 h-4 shrink-0 text-teal-300" />
+               <span className="hidden md:inline">الملف المهني</span>
+             </button>
+
+             {/* 4. العمولات والأرباح */}
+             <button
+               type="button"
+               onClick={() => setSidebarNav('finance')}
+               className={`w-full flex items-center space-x-2 space-x-reverse px-3 py-2.5 rounded-xl font-extrabold text-xs transition-all ${
+                 sidebarNav === 'finance'
+                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-950/40'
+                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+               }`}
+             >
+               <DollarSign className="w-4 h-4 shrink-0 text-indigo-300" />
+               <span className="hidden md:inline">العمولات والأرباح</span>
+             </button>
+           </div>
+         </div>
+
+         {/* SIDE BAR: Cases Queue List */}
+         {sidebarNav === 'cases' && (
+            <Fragment>
+              <div className="w-[340px] bg-slate-950 rounded-2xl p-3 border border-slate-800 flex flex-col justify-between shrink-0">
+           <div className="space-y-3">
+             <div className="flex justify-between items-center px-1">
+               <h3 className="font-bold text-slate-200 text-xs flex items-center space-x-1.5 space-x-reverse">
+                 <Users className="w-3.5 h-3.5 text-teal-400" />
+                 <span>الحالات</span>
+               </h3>
+               <span className="bg-amber-600/20 text-amber-400 text-[10px] px-2.5 py-0.5 rounded-full font-bold">
+                 {caseStatusFilter === 'waiting' ? `${pendingCount} في الانتظار` : `${completedCount} م مكتملة`}
+               </span>
+             </div>
+
+             {/* Sub-toggle: حالات في الانتظار vs حالات سابقة */}
+             <div className="grid grid-cols-2 gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800">
+               <button
+                 type="button"
+                 onClick={() => setCaseStatusFilter('waiting')}
+                 className={`py-1.5 px-2 rounded-lg text-[11px] font-extrabold text-center transition-all ${
+                   caseStatusFilter === 'waiting'
+                     ? 'bg-teal-600 text-white shadow'
+                     : 'text-slate-400 hover:text-slate-200'
+                 }`}
+               >
+                 حالات في الانتظار ({pendingCount})
+               </button>
+               <button
+                 type="button"
+                 onClick={() => setCaseStatusFilter('previous')}
+                 className={`py-1.5 px-2 rounded-lg text-[11px] font-extrabold text-center transition-all ${
+                   caseStatusFilter === 'previous'
+                     ? 'bg-teal-600 text-white shadow'
+                     : 'text-slate-400 hover:text-slate-200'
+                 }`}
+               >
+                 حالات سابقة ({completedCount})
+               </button>
+             </div>
+
+             {/* Categories Quick Filter Tabs */}
              <div className="flex bg-slate-100/10 p-1 rounded-xl">
                <button 
                  type="button"
                  onClick={() => { setActiveTab('OTC'); setSelectedCaseId(""); }}
-                 className={`flex-1 text-center py-1.5 rounded-lg text-xs font-bold transition-all ${
+                 className={`flex-1 text-center py-1 rounded-lg text-[10.5px] font-bold transition-all ${
                    activeTab === 'OTC' ? 'bg-teal-600 text-white' : 'text-slate-400 hover:text-slate-200'
                  }`}
                >
-                 استشارات OTC
+                 استشارات
                </button>
                <button 
                  type="button"
                  onClick={() => { setActiveTab('REV'); setSelectedCaseId(""); }}
-                 className={`flex-1 text-center py-1.5 rounded-lg text-xs font-bold transition-all ${
+                 className={`flex-1 text-center py-1 rounded-lg text-[10.5px] font-bold transition-all ${
                    activeTab === 'REV' ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:text-slate-200'
                  }`}
                >
@@ -1502,11 +1578,11 @@ export default function PharmacistWorkspace({
                <button 
                  type="button"
                  onClick={() => { setActiveTab('MMP'); setSelectedCaseId(""); }}
-                 className={`flex-1 text-center py-1.5 rounded-lg text-xs font-bold transition-all ${
+                 className={`flex-1 text-center py-1 rounded-lg text-[10.5px] font-bold transition-all ${
                    activeTab === 'MMP' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200'
                  }`}
                >
-                 إدارة الأدوية MMP
+                 إدارة السجل العلاجي
                </button>
              </div>
 
@@ -2747,6 +2823,389 @@ export default function PharmacistWorkspace({
           </div>
         </div>
         )}
+            </Fragment>
+          )}
+
+          {/* PERFORMANCE & PRODUCTIVITY VIEW */}
+          {sidebarNav === 'performance' && (
+            <div className="flex-1 bg-slate-950 rounded-2xl p-6 border border-slate-800 overflow-y-auto space-y-5 text-right font-sans">
+              <div className="flex items-center space-x-3 space-x-reverse border-b border-slate-800 pb-3">
+                <div className="p-2.5 bg-emerald-500/10 text-emerald-400 rounded-2xl border border-emerald-500/20">
+                  <Gauge className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-extrabold text-white">لوحة الأداء والإنتاجية السريرية</h2>
+                  <p className="text-xs text-slate-400">تتبع زمن الاستجابة ودقة تدقيق الروشتات والإنتاجية لتعزيز جودة الرعاية الصيدلانية</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <div className="bg-slate-900/60 p-4 rounded-2xl border border-slate-800 space-y-1.5 hover:border-teal-500/30 transition-all">
+                  <span className="text-[11px] text-slate-400 font-bold block">إجمالي الاستشارات والحالات المكتملة</span>
+                  <div className="text-2xl font-black text-teal-400">{completedCount} <span className="text-xs font-bold text-slate-400">حالة</span></div>
+                  <span className="text-[10px] text-slate-500 block">منذ بداية الجلسة والعمل السحابي</span>
+                </div>
+                <div className="bg-slate-900/60 p-4 rounded-2xl border border-slate-800 space-y-1.5 hover:border-emerald-500/30 transition-all">
+                  <span className="text-[11px] text-slate-400 font-bold block">متوسط زمن الاستجابة والرد</span>
+                  <div className="text-2xl font-black text-emerald-400">4.2 <span className="text-xs font-bold text-slate-400">دقيقة</span></div>
+                  <span className="text-[10px] text-emerald-500 block">⚡ سرعة استجابة فائقة الموثوقية</span>
+                </div>
+                <div className="bg-slate-900/60 p-4 rounded-2xl border border-slate-800 space-y-1.5 hover:border-indigo-500/30 transition-all">
+                  <span className="text-[11px] text-slate-400 font-bold block">نسبة دقة التدقيق الدوائي (DUR)</span>
+                  <div className="text-2xl font-black text-indigo-400">99.4%</div>
+                  <span className="text-[10px] text-indigo-400 block">مطابقة تامة لمعايير هيئة الدواء (EDA)</span>
+                </div>
+                <div className="bg-slate-900/60 p-4 rounded-2xl border border-slate-800 space-y-1.5 hover:border-amber-500/30 transition-all">
+                  <span className="text-[11px] text-slate-400 font-bold block">مؤشر الإنتاجية اليومي</span>
+                  <div className="text-2xl font-black text-amber-400">ممتاز 🌟</div>
+                  <span className="text-[10px] text-amber-500 block">ضمن أعلى 5% من الصيادلة المعتمدين</span>
+                </div>
+              </div>
+
+              <div className="bg-slate-900/40 p-5 rounded-2xl border border-slate-800 space-y-3">
+                <h3 className="text-xs font-extrabold text-white flex items-center space-x-1.5 space-x-reverse">
+                  <TrendingUp className="w-4 h-4 text-emerald-400" />
+                  <span>مؤشرات الأداء والنمو الإنتاجي الأسبوعي:</span>
+                </h3>
+                <div className="h-56 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={[
+                      { day: "السبت", cases: 8, avgTime: 5 },
+                      { day: "الأحد", cases: 12, avgTime: 4 },
+                      { day: "الإثنين", cases: 15, avgTime: 3.5 },
+                      { day: "الثلاثاء", cases: 10, avgTime: 4.2 },
+                      { day: "الأربعاء", cases: 18, avgTime: 3.8 },
+                      { day: "الخميس", cases: 22, avgTime: 3.2 },
+                      { day: "الجمعة", cases: 14, avgTime: 4.0 },
+                    ]}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                      <XAxis dataKey="day" stroke="#64748b" tick={{ fontSize: 11 }} />
+                      <YAxis stroke="#64748b" tick={{ fontSize: 11 }} />
+                      <Tooltip contentStyle={{ backgroundColor: "#020617", borderColor: "#334155", borderRadius: "12px", color: "#f8fafc" }} />
+                      <Bar dataKey="cases" name="عدد الحالات المكتملة" fill="#0d9488" radius={[6, 6, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* PROFESSIONAL PROFILE VIEW */}
+          {sidebarNav === 'profile' && (
+            <div className="flex-1 bg-slate-950 rounded-2xl p-6 border border-slate-800 overflow-y-auto space-y-5 text-right font-sans">
+              <div className="flex items-center space-x-3 space-x-reverse border-b border-slate-800 pb-3">
+                <div className="p-2.5 bg-teal-500/10 text-teal-400 rounded-2xl border border-teal-500/20">
+                  <UserCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-extrabold text-white">الملف السريري والمهني للصيدلي</h2>
+                  <p className="text-xs text-slate-400">تحديث تفاصيل الاعتمادات ورقم ترخيص مزاولة المهنة ومعايير EDA</p>
+                </div>
+              </div>
+
+              <div className="bg-slate-900/60 rounded-2xl p-3.5 border border-slate-800 text-xs text-slate-300 leading-relaxed space-y-1">
+                <span className="text-amber-400 font-extrabold block">⚠️ إشعار المطابقة والتوقيع المرخص:</span>
+                <p className="text-[11px] text-slate-400">تدرج هذه البيانات بشكل فوري داخل التوقيع الرقمي المشفر للتقارير السريرية ووصفات الـ OTC تماشياً مع معايير هيئة الدواء المصرية (EDA). يرجى تحري الدقة الكاملة عند تحديث الاسم والتخصص لضمان الموثوقية القانونية والامتثال السريري.</p>
+              </div>
+
+              <div className="space-y-4 max-w-2xl">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-300 flex items-center space-x-1 space-x-reverse">
+                    <span>الاسم بالكامل (التوقيع الرسمي):</span>
+                    <span className="text-rose-500 font-bold">*</span>
+                  </label>
+                  <input 
+                    type="text"
+                    value={profileName}
+                    onChange={(e) => setProfileName(e.target.value)}
+                    placeholder="مثال: د. هاني شاكر العشري"
+                    className="w-full bg-slate-900 text-right text-xs border border-slate-800 hover:border-slate-700 focus:border-teal-500 rounded-xl p-3 text-slate-200 font-bold focus:outline-none transition-all"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-300 flex items-center space-x-1 space-x-reverse">
+                      <span>رقم ترخيص مزاولة المهنة القومي / النقابي:</span>
+                      <span className="text-rose-500 font-bold">*</span>
+                    </label>
+                    <input 
+                      type="text"
+                      value={profileLicense}
+                      onChange={(e) => setProfileLicense(e.target.value)}
+                      placeholder="مثال: LIC-12345-EG"
+                      className="w-full bg-slate-900 text-right text-xs border border-slate-800 hover:border-slate-700 focus:border-teal-500 rounded-xl p-3 text-slate-200 font-mono font-bold focus:outline-none transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-300">التخصص الطبي المعتمد:</label>
+                    <select
+                      value={profileSpecialty}
+                      onChange={(e) => setProfileSpecialty(e.target.value as ApprovedSpecialty)}
+                      className="w-full bg-slate-900 text-right text-xs border border-slate-800 hover:border-slate-700 focus:border-teal-500 rounded-xl p-3 text-slate-200 font-medium focus:outline-none transition-all"
+                    >
+                      {ApprovedSpecialtiesList.map(spec => (
+                        <option key={spec.key} value={spec.key} className="bg-slate-900 text-right">
+                          {spec.ar}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-300">الدرجة أو المرتبة العلمية:</label>
+                  <select
+                    value={profileDegree}
+                    onChange={(e) => setProfileDegree(e.target.value as PharmacistDegree)}
+                    className="w-full bg-slate-900 text-right text-xs border border-slate-800 hover:border-slate-700 focus:border-teal-500 rounded-xl p-3 text-slate-200 font-medium focus:outline-none transition-all"
+                  >
+                    <option value="junior" className="bg-slate-900 text-right">صيدلي مبتدئ (Junior)</option>
+                    <option value="Senior" className="bg-slate-900 text-right">صيدلي أول (Senior)</option>
+                    <option value="Specialist" className="bg-slate-900 text-right">أخصائي صيدلة (Specialist)</option>
+                    <option value="consultant" className="bg-slate-900 text-right">صيدلي استشاري (Consultant)</option>
+                    <option value="prime consultant" className="bg-slate-900 text-right">استشاري أول متميز (Prime Consultant)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2 pt-2 border-t border-slate-800 font-sans">
+                  <span className="text-xs font-bold text-slate-300 block">📍 النطاق الجغرافي للعمل:</span>
+                  
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-1 text-right">
+                      <span className="text-[10px] text-slate-400 font-bold block">الدولة:</span>
+                      <select
+                        value={profileCountry}
+                        onChange={(e) => setProfileCountry(e.target.value)}
+                        className="w-full bg-slate-900 text-right text-xs border border-slate-800 hover:border-slate-700 focus:border-teal-500 rounded-xl p-2.5 text-slate-200 font-medium focus:outline-none transition-all"
+                      >
+                        <option value="مصر" className="bg-slate-900">مصر</option>
+                        <option value="دولة أخرى" className="bg-slate-900">دولة أخرى</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1 text-right">
+                      <span className="text-[10px] text-slate-400 font-bold block">المحافظة:</span>
+                      <select
+                        value={profileGovernorate}
+                        disabled={profileCountry !== "مصر"}
+                        onChange={(e) => setProfileGovernorate(e.target.value)}
+                        className="w-full bg-slate-900 text-right text-xs border border-slate-800 hover:border-slate-700 focus:border-teal-500 rounded-xl p-2.5 text-slate-200 font-medium focus:outline-none disabled:opacity-40 transition-all"
+                      >
+                        {["القاهرة", "الجيزة", "الإسكندرية", "القليوبية", "الدقهلية", "الشرقية", "المنوفية", "الغربية", "البحيرة", "دمياط", "بورسعيد", "الإسماعيلية", "السويس", "كفر الشيخ", "الفيوم", "بني سويف", "المنيا", "أسيوط", "سوهاج", "قنا", "الأقصر", "أسوان", "البحر الأحمر", "الوادي الجديد", "مطروح", "شمال سيناء", "جنوب سيناء"].map(gov => (
+                          <option key={gov} value={gov} className="bg-slate-900">{gov}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-1 text-right">
+                      <span className="text-[10px] text-slate-400 font-bold block">المدينة:</span>
+                      <input 
+                        type="text"
+                        value={profileCity}
+                        onChange={(e) => setProfileCity(e.target.value)}
+                        placeholder="مثال: القاهرة الجديدة"
+                        className="w-full bg-slate-900 text-right text-xs border border-slate-800 hover:border-slate-700 focus:border-teal-500 rounded-xl p-2.5 text-slate-200 font-medium focus:outline-none transition-all"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {profileMessage && (
+                  <div className={`p-3 rounded-xl border text-xs leading-relaxed ${
+                    profileMessage.type === 'success' 
+                      ? 'bg-emerald-950/40 border-emerald-800/40 text-emerald-300' 
+                      : 'bg-rose-950/40 border-rose-800/40 text-rose-300'
+                  }`}>
+                    {profileMessage.text}
+                  </div>
+                )}
+
+                <button 
+                  onClick={handleSaveProfile}
+                  disabled={isSavingProfile}
+                  className="w-full bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white font-extrabold text-xs py-3 rounded-xl transition-all shadow-lg flex items-center justify-center space-x-1.5 space-x-reverse focus:outline-none cursor-pointer"
+                >
+                  {isSavingProfile ? (
+                    <span>جاري حفظ البيانات السحابية...</span>
+                  ) : (
+                    <>
+                      <FileCheck className="w-4 h-4 text-emerald-300" />
+                      <span>حفظ وتأكيد البيانات والامتثال لـ EDA</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* COMMISSIONS & REVENUE VIEW */}
+          {sidebarNav === 'finance' && (
+            <div className="flex-1 bg-slate-950 rounded-2xl p-6 border border-slate-800 overflow-y-auto space-y-5 text-right font-sans">
+              <div className="flex items-center space-x-3 space-x-reverse border-b border-slate-800 pb-3">
+                <div className="p-2.5 bg-indigo-500/10 text-indigo-400 rounded-2xl border border-indigo-500/20">
+                  <DollarSign className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-extrabold text-white">العمولات والأرباح</h2>
+                  <p className="text-xs text-slate-400">مراقبة المعاملات واستخلاص تقارير الأرباح بمعدل 60% للصيدلي و 40% لإدارة التطبيق</p>
+                </div>
+              </div>
+
+              {(() => {
+                const totalSum = filteredTransactions.reduce((sum, t) => sum + t.amount, 0);
+                const docCut = totalSum * 0.6;
+                const appCut = totalSum * 0.4;
+                const totalCount = filteredTransactions.length;
+
+                return (
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                    <div className="bg-slate-900/60 p-4 rounded-2xl border border-slate-800 space-y-1.5">
+                      <span className="text-[11px] text-slate-400 font-bold block">إجمالي حجم مدفوعات الخدمات</span>
+                      <div className="text-xl font-black text-white">{totalSum.toLocaleString('ar-EG')} <span className="text-xs font-bold text-slate-400">ج.م</span></div>
+                      <span className="text-[10px] text-slate-500 block">شاملة عروض حملات الخصم</span>
+                    </div>
+                    <div className="bg-emerald-950/30 p-4 rounded-2xl border border-emerald-900/40 space-y-1.5">
+                      <span className="text-[11px] text-emerald-400 font-bold block">عمولاتك المستحقة (60%)</span>
+                      <div className="text-xl font-black text-emerald-400">{docCut.toLocaleString('ar-EG')} <span className="text-xs font-bold">ج.م</span></div>
+                      <span className="text-[10px] text-emerald-500 block">صافي رصيد الصيدلي الإكلينيكي</span>
+                    </div>
+                    <div className="bg-slate-900/60 p-4 rounded-2xl border border-slate-800 space-y-1.5">
+                      <span className="text-[11px] text-slate-400 font-bold block">نسبة إدارة المنصة (40%)</span>
+                      <div className="text-xl font-black text-slate-300">{appCut.toLocaleString('ar-EG')} <span className="text-xs font-bold text-slate-400">ج.م</span></div>
+                      <span className="text-[10px] text-slate-500 block">تكلفة الخوادم والمعالجة السحابية</span>
+                    </div>
+                    <div className="bg-indigo-950/30 p-4 rounded-2xl border border-indigo-900/40 space-y-1.5">
+                      <span className="text-[11px] text-indigo-400 font-bold block">إجمالي المعاملات المكتملة</span>
+                      <div className="text-xl font-black text-indigo-400">{totalCount} <span className="text-xs font-bold">استشارة</span></div>
+                      <span className="text-[10px] text-indigo-500 block">حسب الفلاتر المحددة</span>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <div className="bg-slate-900/60 p-4 rounded-2xl border border-slate-800 space-y-3">
+                <div className="flex items-center space-x-2 space-x-reverse pb-2 border-b border-slate-800">
+                  <Sliders className="w-4 h-4 text-indigo-400" />
+                  <span className="text-xs font-bold text-slate-200">أدوات تصفية وحساب التقارير الذكية:</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  <div className="space-y-1 text-right">
+                    <span className="text-[10px] text-slate-400 font-bold block">المدة الزمنية:</span>
+                    <select
+                      value={financeTimeframe}
+                      onChange={(e: any) => setFinanceTimeframe(e.target.value)}
+                      className="w-full bg-slate-950 text-right text-xs border border-slate-800 rounded-xl p-2 text-slate-200 font-medium focus:outline-none"
+                    >
+                      <option value="daily">اليوم (Daily)</option>
+                      <option value="weekly">الأسبوع الأخير (Weekly)</option>
+                      <option value="monthly">الشهر الأخير (Monthly)</option>
+                      <option value="quarterly">ربع سنوي (Quarterly)</option>
+                      <option value="custom">فترة مخصصة (Custom Range)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1 text-right">
+                    <span className="text-[10px] text-slate-400 font-bold block">النطاق الجغرافي:</span>
+                    <select
+                      value={financeRegion}
+                      onChange={(e) => setFinanceRegion(e.target.value)}
+                      className="w-full bg-slate-950 text-right text-xs border border-slate-800 rounded-xl p-2 text-slate-200 font-medium focus:outline-none"
+                    >
+                      <option value="All">كل المحافظات والأقاليم</option>
+                      {uniqueGovernorates.map(gov => (
+                        <option key={gov} value={gov}>{gov}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1 text-right">
+                    <span className="text-[10px] text-slate-400 font-bold block">التخصص الطبي:</span>
+                    <select
+                      value={financeSpecialty}
+                      onChange={(e) => setFinanceSpecialty(e.target.value)}
+                      className="w-full bg-slate-950 text-right text-xs border border-slate-800 rounded-xl p-2 text-slate-200 font-medium focus:outline-none"
+                    >
+                      <option value="All">كل التخصصات الطبية</option>
+                      {ApprovedSpecialtiesList.map(spec => (
+                        <option key={spec.key} value={spec.key}>{spec.ar}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1 text-right">
+                    <span className="text-[10px] text-slate-400 font-bold block">نوع الاستشارة:</span>
+                    <select
+                      value={financeType}
+                      onChange={(e) => setFinanceType(e.target.value)}
+                      className="w-full bg-slate-950 text-right text-xs border border-slate-800 rounded-xl p-2 text-slate-200 font-medium focus:outline-none"
+                    >
+                      <option value="All">كل الخدمات</option>
+                      <option value="OTC">استشارة OTC السريرية</option>
+                      <option value="REV">مراجعة روشتة إكلينيكية (DUR)</option>
+                      <option value="MMP">إدارة الخطة الدوائية (MMP)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="text-xs font-extrabold text-white flex items-center space-x-1.5 space-x-reverse pb-1 border-b border-slate-800">
+                  <CalendarDays className="w-4 h-4 text-indigo-400" />
+                  <span>سجل المعاملات والعمولات المكتملة:</span>
+                </h3>
+
+                <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
+                  {isLoadingFinance ? (
+                    <div className="text-center py-12 text-slate-400 font-bold text-xs">جاري تحميل سجل البوابة المالية السحابية...</div>
+                  ) : filteredTransactions.length > 0 ? (
+                    filteredTransactions.map((tx) => (
+                      <div key={tx.id} className="bg-slate-900/60 p-3.5 rounded-2xl border border-slate-800 space-y-2 text-right">
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center space-x-2 space-x-reverse">
+                            <span className="text-xs font-extrabold text-white">{tx.patientName}</span>
+                            <span className="text-[10px] text-slate-500 font-mono">({tx.id})</span>
+                          </div>
+                          <span className="text-[10px] text-indigo-400 font-mono">{new Date(tx.timestamp).toLocaleString('ar-EG')}</span>
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10.5px] pt-2 border-t border-slate-800/80">
+                          <div>
+                            <span className="text-slate-500 block">الخدمة:</span>
+                            <span className="font-bold text-slate-300">{tx.serviceName}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 block">📍 النطاق الجغرافي:</span>
+                            <span className="font-bold text-slate-300">{tx.governorate} - {tx.city}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 block">⚕️ التخصص:</span>
+                            <span className="font-bold text-slate-300">
+                              {ApprovedSpecialtiesList.find(s => s.key === tx.specialty)?.ar || tx.specialty}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 block">القيمة والتقسيم:</span>
+                            <div className="flex items-center space-x-1 space-x-reverse font-extrabold">
+                              <span className="text-emerald-400">{tx.amount * 0.6} ج.م (صيدلي)</span>
+                              <span className="text-slate-500 font-normal">|</span>
+                              <span className="text-slate-400">{tx.amount * 0.4} ج.م (إدارة)</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="bg-slate-900/30 text-center py-10 rounded-2xl border border-slate-800 text-slate-500 text-xs font-bold leading-relaxed">
+                      لا توجد معاملات مالية مطابقة للفلاتر وعمليات البحث الحالية لملفك الطبي الصيدلي.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
       </div>
 
           {/* FCM & PUSH NOTIFICATIONS CONFIGURATION MODAL */}

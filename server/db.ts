@@ -61,6 +61,10 @@ const UserSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  isFrozen: {
+    type: Boolean,
+    default: false,
+  },
   createdAt: {
     type: Date,
     default: Date.now,
@@ -150,6 +154,7 @@ interface InMemUser {
   securityQuestion: string;
   securityAnswerHash: string;
   createdAt: string;
+  isFrozen?: boolean;
 }
 
 interface InMemSession {
@@ -250,6 +255,7 @@ export const DB = {
       securityQuestion: found.securityQuestion,
       securityAnswerHash: found.securityAnswerHash,
       createdAt: found.createdAt,
+      isFrozen: !!found.isFrozen,
       async comparePassword(p: string) { return bcrypt.compareSync(p, found.passwordHash); },
       async compareSecurityAnswer(a: string) { return bcrypt.compareSync(a.trim(), found.securityAnswerHash); }
     };
@@ -278,6 +284,7 @@ export const DB = {
       securityQuestion: found.securityQuestion,
       securityAnswerHash: found.securityAnswerHash,
       createdAt: found.createdAt,
+      isFrozen: !!found.isFrozen,
       async comparePassword(p: string) { return bcrypt.compareSync(p, found.passwordHash); },
       async compareSecurityAnswer(a: string) { return bcrypt.compareSync(a.trim(), found.securityAnswerHash); }
     };
@@ -457,5 +464,89 @@ export const DB = {
     }
     inMemChatMessages.push(msg);
     return msg;
+  },
+
+  async getAllUsers() {
+    if (this.isMongooseActive()) {
+      try {
+        const users = await (UserModel as any).find({}).lean();
+        return users.map((u: any) => ({
+          id: u._id.toString(),
+          email: u.email,
+          role: u.role,
+          fullName: u.fullName,
+          nationalId: u.nationalId,
+          licenseNumber: u.licenseNumber,
+          createdAt: u.createdAt,
+          isFrozen: !!u.isFrozen
+        }));
+      } catch (e) {
+        console.error("Mongoose getAllUsers error:", e);
+      }
+    }
+    return inMemUsers.map(u => ({
+      id: u.id,
+      email: u.email,
+      role: u.role,
+      fullName: u.fullName,
+      nationalId: u.nationalId,
+      licenseNumber: u.licenseNumber,
+      createdAt: u.createdAt,
+      isFrozen: !!u.isFrozen
+    }));
+  },
+
+  async updateUserStatus(id: string, isFrozen: boolean) {
+    if (this.isMongooseActive()) {
+      try {
+        await (UserModel as any).updateOne({ _id: id }, { isFrozen });
+        return true;
+      } catch (e) {
+        console.error("Mongoose updateUserStatus error:", e);
+      }
+    }
+    const user = inMemUsers.find(u => u.id === id);
+    if (user) {
+      user.isFrozen = isFrozen;
+      return true;
+    }
+    return false;
+  },
+
+  async deleteUser(id: string) {
+    if (this.isMongooseActive()) {
+      try {
+        await (UserModel as any).deleteOne({ _id: id });
+        await (SessionModel as any).deleteMany({ userId: id });
+        return true;
+      } catch (e) {
+        console.error("Mongoose deleteUser error:", e);
+      }
+    }
+    const lenBefore = inMemUsers.length;
+    inMemUsers = inMemUsers.filter(u => u.id !== id);
+    inMemSessions = inMemSessions.filter(s => s.userId !== id);
+    return inMemUsers.length < lenBefore;
+  },
+
+  async resetUserAccount(id: string) {
+    const defaultPasswordHash = bcrypt.hashSync("123456", 10);
+    if (this.isMongooseActive()) {
+      try {
+        await (UserModel as any).updateOne({ _id: id }, { passwordHash: defaultPasswordHash, isFrozen: false });
+        await (SessionModel as any).deleteMany({ userId: id });
+        return true;
+      } catch (e) {
+        console.error("Mongoose resetUserAccount error:", e);
+      }
+    }
+    const user = inMemUsers.find(u => u.id === id);
+    if (user) {
+      user.passwordHash = defaultPasswordHash;
+      user.isFrozen = false;
+      inMemSessions = inMemSessions.filter(s => s.userId !== id);
+      return true;
+    }
+    return false;
   }
 };

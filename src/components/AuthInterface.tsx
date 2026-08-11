@@ -74,6 +74,40 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
     }
   };
 
+  const handleQuickAutoLogin = async (targetRole: 'patient' | 'pharmacist' | 'admin') => {
+    setError(null);
+    setSuccess(null);
+    setIsLoading(true);
+
+    const targetEmail = targetRole === 'patient' ? "ahmed.aly@mail.eg" : targetRole === 'pharmacist' ? "pharmacist@clinical.eg" : "admin@hospital.eg";
+    const targetPass = "123456";
+
+    setEmail(targetEmail);
+    setPassword(targetPass);
+
+    try {
+      const res = await fetch("/api/v1/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: targetEmail, password: targetPass })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "فشل تسجيل الدخول التلقائي");
+      }
+
+      setSuccess(`تم تسجيل الدخول كـ (${targetRole === 'patient' ? "مريض" : targetRole === 'pharmacist' ? "صيدلي" : "أدمن"}) بنجاح!`);
+      setTimeout(() => {
+        onAuthSuccess(data.token, data.user);
+        setIsLoading(false);
+      }, 400);
+    } catch (err: any) {
+      setError(err.message);
+      setIsLoading(false);
+    }
+  };
+
   const clearForm = () => {
     setEmail("");
     setPassword("");
@@ -292,10 +326,10 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
             <div className="w-11 h-11 bg-teal-50 rounded-2xl flex items-center justify-center text-teal-600 mb-2">
               <Fingerprint className="w-6 h-6" />
             </div>
-            <h3 className="text-sm font-black text-slate-850">
+            <h3 className="text-sm font-black text-slate-900">
               {role === 'patient' ? "بوابة دخول المريض الرقمية" : role === 'pharmacist' ? "بوابة تدقيق الصيدلي الإكلينيكي" : "بوابة مدير النظام الإكلينيكي"}
             </h3>
-            <p className="text-[10px] text-slate-450 mt-1">
+            <p className="text-[10px] text-slate-500 mt-1">
               {view === 'login' ? "سجل دخولك فورا لتنشيط منبهات الأدوية وجلسة المتابعة" : 
                view === 'register' ? "أنشئ حساباً جديداً متكاملاً مع تشفير الجلسات" : "استرداد آمن بأسئلة الأمان المقاومة للاختراق"}
             </p>
@@ -361,20 +395,31 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
                   <button
                     type="button"
                     onClick={() => { setView('forgot'); setError(null); }}
-                    className="text-[10px] text-slate-450 hover:text-teal-600 font-bold transition-colors cursor-pointer focus:outline-none"
+                    className="text-[10px] text-slate-500 hover:text-teal-600 font-bold transition-colors cursor-pointer focus:outline-none"
                   >
                     نسيت كلمة المرور؟ استرداد الحساب
                   </button>
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full py-2.5 bg-teal-650 hover:bg-teal-700 disabled:bg-slate-300 text-white font-black rounded-2xl text-xs transition-colors cursor-pointer flex items-center justify-center space-x-2 space-x-reverse shadow-md shadow-teal-600/10"
-                >
-                  {isLoading ? <RotateCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-                  <span>تسجيل الدخول الآمن (JWT)</span>
-                </button>
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full py-2.5 bg-teal-600 hover:bg-teal-700 disabled:bg-slate-300 text-white font-black rounded-2xl text-xs transition-colors cursor-pointer flex items-center justify-center space-x-2 space-x-reverse shadow-md shadow-teal-600/10"
+                  >
+                    {isLoading ? <RotateCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                    <span>تسجيل الدخول الآمن (JWT)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleQuickAutoLogin(role || 'patient')}
+                    disabled={isLoading}
+                    className="w-full py-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 font-bold rounded-2xl text-[11px] transition-all cursor-pointer flex items-center justify-center space-x-1.5 space-x-reverse"
+                  >
+                    <span>⚡ تعبئة تلقائية ودخول مباشر ({role === 'pharmacist' ? "صيدلي" : role === 'admin' ? "أدمن" : "مريض"})</span>
+                  </button>
+                </div>
               </motion.form>
             )}
 
@@ -514,10 +559,10 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
                   </div>
                 </div>
 
-                <div className="bg-slate-50 p-2.5 rounded-2xl border border-slate-150 space-y-2">
-                  <div className="text-[10px] text-teal-650 font-bold flex items-center justify-between">
+                <div className="bg-slate-50 p-2.5 rounded-2xl border border-slate-200 space-y-2">
+                  <div className="text-[10px] text-teal-700 font-bold flex items-center justify-between">
                     <span>حماية مضافة (استرداد بمستند الأمان)</span>
-                    <span className="text-[9px] bg-teal-100 text-teal-850 px-1 py-0.2 rounded font-normal">سؤال الأمان</span>
+                    <span className="text-[9px] bg-teal-100 text-teal-900 px-1 py-0.2 rounded font-normal">سؤال الأمان</span>
                   </div>
                   <select
                     value={securityQuestion}
@@ -535,14 +580,14 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
                     value={securityAnswer}
                     onChange={(e) => setSecurityAnswer(e.target.value)}
                     placeholder="إجابة الأمان الذكية السرية"
-                    className="w-full p-1.5 bg-white border border-slate-205 rounded-lg text-[10.5px] font-medium outline-none focus:border-teal-500 text-right"
+                    className="w-full p-1.5 bg-white border border-slate-200 rounded-lg text-[10.5px] font-medium outline-none focus:border-teal-500 text-right"
                   />
                 </div>
 
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full py-2.5 bg-teal-650 hover:bg-teal-700 disabled:bg-slate-300 text-white font-black rounded-2xl text-xs transition-colors cursor-pointer flex items-center justify-center space-x-2 space-x-reverse"
+                  className="w-full py-2.5 bg-teal-600 hover:bg-teal-700 disabled:bg-slate-300 text-white font-black rounded-2xl text-xs transition-colors cursor-pointer flex items-center justify-center space-x-2 space-x-reverse"
                 >
                   {isLoading ? <RotateCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
                   <span>تسجيل حساب معتمد فوري</span>
@@ -577,7 +622,7 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full py-2.5 bg-teal-650 hover:bg-teal-700 disabled:bg-slate-300 text-white font-black rounded-2xl text-xs transition-colors cursor-pointer flex items-center justify-center space-x-2 space-x-reverse"
+                  className="w-full py-2.5 bg-teal-600 hover:bg-teal-700 disabled:bg-slate-300 text-white font-black rounded-2xl text-xs transition-colors cursor-pointer flex items-center justify-center space-x-2 space-x-reverse"
                 >
                   {isLoading ? <RotateCw className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
                   <span>جلب سؤال الأمان للتحقق</span>
@@ -595,7 +640,7 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
                 className="space-y-3 text-right"
               >
                 <div className="bg-teal-50/50 p-3 rounded-2xl border border-teal-100 text-teal-900 mb-1">
-                  <span className="text-[9px] text-teal-650 font-bold block">سؤال الأمان المسجل:</span>
+                  <span className="text-[9px] text-teal-700 font-bold block">سؤال الأمان المسجل:</span>
                   <p className="text-xs font-extrabold mt-0.5 text-right">{fetchedQuestion}</p>
                 </div>
 
@@ -626,7 +671,7 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full py-2.5 bg-rose-650 hover:bg-rose-700 disabled:bg-slate-300 text-white font-black rounded-2xl text-xs transition-colors cursor-pointer flex items-center justify-center space-x-2 space-x-reverse"
+                  className="w-full py-2.5 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-300 text-white font-black rounded-2xl text-xs transition-colors cursor-pointer flex items-center justify-center space-x-2 space-x-reverse"
                 >
                   {isLoading ? <RotateCw className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
                   <span>تأكيد الإجابة وإعادة تعيين كلمة المرور</span>
@@ -661,8 +706,14 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
 
             {/* Quick Helper Pre-Fill Button */}
             <button
-              onClick={() => handlePrefill(view === 'register' ? registerRole : (role || 'patient'))}
-              className="text-[10px] bg-amber-50 hover:bg-amber-100/80 border border-amber-200 text-amber-850 px-2.5 py-1.5 rounded-xl font-bold transition-all cursor-pointer flex items-center space-x-1 space-x-reverse focus:outline-none"
+              onClick={() => {
+                if (view === 'login') {
+                  handleQuickAutoLogin(role || 'patient');
+                } else {
+                  handlePrefill(view === 'register' ? registerRole : (role || 'patient'));
+                }
+              }}
+              className="text-[10px] bg-amber-50 hover:bg-amber-100/80 border border-amber-200 text-amber-900 px-2.5 py-1.5 rounded-xl font-bold transition-all cursor-pointer flex items-center space-x-1 space-x-reverse focus:outline-none"
             >
               <span>⚡ تجربة تعبئة تلقائية ({view === 'register' ? (registerRole === 'patient' ? "مريض" : registerRole === 'pharmacist' ? "صيدلي" : "أدمن") : (role === 'pharmacist' ? "صيدلي" : "مريض")})</span>
             </button>

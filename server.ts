@@ -1207,7 +1207,7 @@ app.post("/api/v1/services/set-meet-url", (req, res) => {
 });
 
 // Process online payment gateway transaction
-app.post("/api/v1/payments/process", (req, res) => {
+app.post("/api/v1/payments/process", async (req, res) => {
   const {
     serviceType,
     amount,
@@ -1220,6 +1220,16 @@ app.post("/api/v1/payments/process", (req, res) => {
     prescriptionImageUrl,
     appointmentTime
   } = req.body;
+
+  // Check if patient account is frozen
+  const allUsers = await DB.getAllUsers();
+  const matchedUser = allUsers.find(u => u.nationalId === patientId || u.id === patientId);
+  if (matchedUser && matchedUser.isFrozen) {
+    return res.status(403).json({
+      success: false,
+      message: "تعذر إتمام الحجز: حساب المريض مجمد حالياً من قبل إدارة المنصة."
+    });
+  }
 
   const txnIdSuffix = Math.floor(1000000 + Math.random() * 9000000).toString();
   const transactionId = paymentMethod === "visa" 
@@ -2109,6 +2119,10 @@ app.post("/api/v1/auth/login", async (req, res) => {
     return res.status(401).json({ error: "البريد الإلكتروني أو كلمة المرور غير صحيحة." });
   }
 
+  if (user.isFrozen) {
+    return res.status(403).json({ error: "الحساب مجمد من قبل إدارة المنصة. يرجى التواصل مع الدعم الفني." });
+  }
+
   // Sign JWT
   const tokenPayload = {
     id: user.id || user._id,
@@ -2354,6 +2368,85 @@ app.post("/api/v1/auth/logout", async (req, res) => {
     await DB.deleteSession(token);
   }
   res.json({ success: true, message: "تم تسجيل الخروج بنجاح وإلغاء الجلسة من قاعدة البيانات." });
+});
+
+// ==========================================
+// ADMIN USER ACCOUNT MANAGEMENT ENDPOINTS
+// ==========================================
+
+// List all registered user accounts
+app.get("/api/v1/users", async (req, res) => {
+  try {
+    const users = await DB.getAllUsers();
+    res.json({ success: true, users });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Update user status (Freeze / Unfreeze Account)
+app.put("/api/v1/users/:id/status", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isFrozen } = req.body;
+    const updated = await DB.updateUserStatus(id, !!isFrozen);
+    
+    // Add audit log entry
+    auditLogsStore.unshift({
+      id: `LOG-FRZ-${Date.now().toString().slice(-4)}`,
+      timestamp: new Date().toISOString(),
+      action: isFrozen ? "Account Frozen" : "Account Unfrozen",
+      pharmacist: "أدمن النظام المركزي",
+      serviceId: "USER_MGMT",
+      details: `تم ${isFrozen ? "تجميد" : "إلغاء تجميد"} حساب المستخدم مع المعرف: ${id}`
+    });
+
+    res.json({ success: updated, isFrozen: !!isFrozen, message: isFrozen ? "تم تجميد الحساب بنجاح" : "تم إلغاء تجميد الحساب بنجاح" });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Delete user account
+app.delete("/api/v1/users/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await DB.deleteUser(id);
+
+    auditLogsStore.unshift({
+      id: `LOG-DEL-${Date.now().toString().slice(-4)}`,
+      timestamp: new Date().toISOString(),
+      action: "Account Deleted",
+      pharmacist: "أدمن النظام المركزي",
+      serviceId: "USER_MGMT",
+      details: `تم حذف حساب المستخدم نهائياً مع المعرف: ${id}`
+    });
+
+    res.json({ success: deleted, message: "تم حذف الحساب بنجاح من القاعدة المركزية" });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Reset user account (Reset password to default '123456', unfreeze, terminate active sessions)
+app.post("/api/v1/users/:id/reset", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const reset = await DB.resetUserAccount(id);
+
+    auditLogsStore.unshift({
+      id: `LOG-RST-${Date.now().toString().slice(-4)}`,
+      timestamp: new Date().toISOString(),
+      action: "Account Reset",
+      pharmacist: "أدمن النظام المركزي",
+      serviceId: "USER_MGMT",
+      details: `تم إعادة ضبط الجلسات وكلمة المرور الافتراضية (123456) للحساب مع المعرف: ${id}`
+    });
+
+    res.json({ success: reset, message: "تمت إعادة ضبط الحساب والجلسات بنجاح" });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // 4. Gemini Smart Clinical Checker Route
