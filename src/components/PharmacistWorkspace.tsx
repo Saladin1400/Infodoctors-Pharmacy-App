@@ -10,7 +10,7 @@ import {
   CheckSquare, FileCheck, RotateCw, ZoomIn, ZoomOut, RotateCcw, 
   Play, CheckCircle2, RefreshCw, Eye, BookOpen, UserCheck, Stethoscope, ChevronLeft,
   Bell, Calendar, Phone, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare,
-  DollarSign, TrendingUp, MapPin, Sliders, CalendarDays, Activity, Gauge, Zap
+  DollarSign, TrendingUp, MapPin, Sliders, CalendarDays, Activity, Gauge, Zap, Camera
 } from "lucide-react";
 import { 
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, 
@@ -21,6 +21,8 @@ import AuthInterface from "./AuthInterface";
 import { Fingerprint, Lock, LogOut, ShieldCheck } from "lucide-react";
 import MedicationInteractionsChart from "./MedicationInteractionsChart";
 import AuditAssistModule from "./AuditAssistModule";
+import PrescriptionAuditProgressBar, { PrescriptionAuditStage } from "./PrescriptionAuditProgressBar";
+import { ProfilePhotoUploader } from "./ProfilePhotoUploader";
 import { registerPushNotifications, triggerLocalNativeNotification } from "../lib/pushNotifications";
 import { useLanguage, LanguageSwitcher } from "../LanguageContext";
 
@@ -113,36 +115,44 @@ export default function PharmacistWorkspace({
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
 
-  // Sythesize real double-beep chime
+  // Continuous audio ping removed per user preference
   const triggerAudioPing = () => {
+    // Sound disabled
+  };
+
+  // Pharmacist photo upload states
+  const [pharmacistPhoto, setPharmacistPhoto] = useState<string>(
+    currentUser?.photoUrl || currentUser?.avatarUrl || currentUser?.profileImage || ""
+  );
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [isSavingPhoto, setIsSavingPhoto] = useState(false);
+
+  const handleSavePharmacistPhoto = async (photoDataUrl: string) => {
+    setIsSavingPhoto(true);
     try {
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioCtx.createOscillator();
-      const gainNode = audioCtx.createGain();
-      
-      oscillator.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
-      
-      oscillator.type = "sine";
-      oscillator.frequency.setValueAtTime(660, audioCtx.currentTime); 
-      gainNode.gain.setValueAtTime(0.06, audioCtx.currentTime);
-      
-      oscillator.start();
-      oscillator.stop(audioCtx.currentTime + 0.1);
-      
-      setTimeout(() => {
-        const osc2 = audioCtx.createOscillator();
-        const gain2 = audioCtx.createGain();
-        osc2.connect(gain2);
-        gain2.connect(audioCtx.destination);
-        osc2.type = "sine";
-        osc2.frequency.setValueAtTime(880, audioCtx.currentTime); 
-        gain2.gain.setValueAtTime(0.06, audioCtx.currentTime);
-        osc2.start();
-        osc2.stop(audioCtx.currentTime + 0.15);
-      }, 120);
+      const license = currentUser?.licenseNumber || profileLicense || "LIC-EG-2026-8891";
+      const res = await fetch("/api/v1/pharmacists/photo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          licenseNumber: license,
+          photoUrl: photoDataUrl,
+          fullName: currentUser?.fullName || pharmacistName
+        })
+      });
+      if (res.ok) {
+        setPharmacistPhoto(photoDataUrl);
+        if (currentUser) {
+          currentUser.photoUrl = photoDataUrl;
+          currentUser.avatarUrl = photoDataUrl;
+          currentUser.profileImage = photoDataUrl;
+        }
+      }
     } catch (e) {
-      // standard limits
+      console.error("Failed to save pharmacist photo:", e);
+    } finally {
+      setIsSavingPhoto(false);
+      setShowPhotoModal(false);
     }
   };
   
@@ -496,8 +506,15 @@ export default function PharmacistWorkspace({
   useEffect(() => {
     if (currentUser && currentUser.licenseNumber) {
       setProfileLicense(currentUser.licenseNumber);
-      fetch(`/api/v1/pharmacists/profile/${currentUser.licenseNumber}`)
-        .then(res => res.ok ? res.json() : null)
+      fetch(`/api/v1/pharmacists/profile/${encodeURIComponent(currentUser.licenseNumber)}`)
+        .then(async res => {
+          if (!res.ok) return null;
+          const contentType = res.headers.get("content-type");
+          if (contentType && contentType.includes("application/json")) {
+            return await res.json();
+          }
+          return null;
+        })
         .then((data: PharmacistProfile | null) => {
           if (data) {
             setProfileName(data.fullName);
@@ -641,7 +658,7 @@ export default function PharmacistWorkspace({
             next.add(unshown.id);
             return next;
           });
-          triggerAudioPing();
+          // triggerAudioPing disabled
           // Trigger browser native desktop push notification (FCM style)
           triggerLocalNativeNotification(unshown.title, unshown.body, unshown.metadata);
 
@@ -1182,9 +1199,59 @@ export default function PharmacistWorkspace({
     }
   }, [selectedCaseId, activeTab]);
 
+  // Real-time prescription audit status handler
+  const handleAuditStatusChange = async (newStatus: PrescriptionAuditStage) => {
+    if (!activeCase) return;
+    try {
+      // 1. Update status on backend
+      const res = await fetch(`/api/v1/services/${activeCase.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      if (res.ok) {
+        // 2. Update local state
+        if (activeTab === 'OTC') {
+          setOtcCases(prev => prev.map(c => c.id === activeCase.id ? { ...c, status: newStatus } : c));
+        } else if (activeTab === 'REV') {
+          setRevisionCases(prev => prev.map(c => c.id === activeCase.id ? { ...c, status: newStatus } : c));
+        } else {
+          setMmpCases(prev => prev.map(c => c.id === activeCase.id ? { ...c, status: newStatus as any } : c));
+        }
+
+        // 3. Post audit trail log & optional patient push notification
+        const statusLabel = 
+          newStatus === 'Completed' ? 'تقرير جاهز ومعتمد' :
+          newStatus === 'Ongoing' ? 'قيد الفحص السريري' : 'تم الاستلام في الطابور';
+
+        if (activePatient) {
+          fetch("/api/v1/push/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              userId: activePatient.nationalId,
+              role: "patient",
+              title: `📋 تحديث حالة تدقيق الروشتة (${activeCase.id})`,
+              body: `تم تحديث حالة الروشتة إلى: "${statusLabel}" بواسطة الصيدلي السريري ${pharmacistName || "المشرف"}.`,
+              type: "PrescriptionAudit"
+            })
+          }).catch(e => console.warn("Push sync skipped:", e));
+        }
+      }
+    } catch (err) {
+      console.error("Failed to update prescription audit status:", err);
+    }
+  };
+
   // Invoke intelligent drug-drug interaction & allergy audit routing
   const testAIAudiEngine = async () => {
     if (!activeCase || !activePatient) return;
+
+    // Advance status to Ongoing (قيد الفحص) in real-time if currently In-Waiting
+    if (activeCase.status === 'In-Waiting') {
+      handleAuditStatusChange('Ongoing');
+    }
 
     setIsAiLoading(true);
     try {
@@ -1367,13 +1434,21 @@ export default function PharmacistWorkspace({
       <div className="flex justify-between items-center border-b border-slate-800 pb-4 mb-4" style={{ direction: "rtl" }}>
         {/* Right Section: Pharmacist Photo, Name, and License Number */}
         <div className="flex items-center space-x-3 space-x-reverse text-right">
-          <div className="relative">
+          <div 
+            onClick={() => setShowPhotoModal(true)}
+            className="relative cursor-pointer group" 
+            title="انقر لتحديث الصورة الشخصية للصيدلي"
+          >
             <img
-              src={currentUser?.avatarUrl || currentUser?.profileImage || "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=150&auto=format&fit=crop&q=80"}
+              src={pharmacistPhoto || currentUser?.photoUrl || currentUser?.avatarUrl || currentUser?.profileImage || "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=150&auto=format&fit=crop&q=80"}
               alt={pharmacistName}
               referrerPolicy="no-referrer"
-              className="w-11 h-11 rounded-2xl border-2 border-teal-500/80 object-cover shadow-md shadow-teal-950/50"
+              className="w-12 h-12 rounded-2xl border-2 border-teal-500/80 object-cover shadow-md shadow-teal-950/50 group-hover:border-teal-400 group-hover:brightness-90 transition-all"
             />
+            <div className="absolute inset-0 bg-black/40 rounded-2xl opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-opacity text-white">
+              <Camera className="w-4 h-4 text-teal-300" />
+              <span className="text-[8px] font-bold text-white mt-0.5">تعديل</span>
+            </div>
             <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-slate-900 rounded-full animate-pulse" title="متصل"></span>
           </div>
           <div>
@@ -1796,14 +1871,26 @@ export default function PharmacistWorkspace({
                   >
                     <div className="grid grid-cols-12 gap-2 items-center" style={{ direction: "rtl" }}>
                       
-                      {/* Column 1: Patient summary & specialty */}
-                      <div className="col-span-6 space-y-0.5 text-right">
+                      {/* Column 1: Patient summary & specialty & current stage */}
+                      <div className="col-span-6 space-y-1 text-right">
                         <div className="flex items-center space-x-1 space-x-reverse">
                           <span className="text-[8px] font-mono text-slate-400 bg-slate-950 px-1 py-0.2 rounded font-bold">{c.id}</span>
                           <h4 className="font-bold text-[11px] text-slate-200 truncate max-w-[90px]" title={c.patientName}>{c.patientName}</h4>
                         </div>
                         <div className="text-[9px] text-teal-400 truncate font-semibold">
                           {c.type === 'MMP' ? 'مخطط علاجي' : c.specialty} • {c.type === 'OTC' ? 'OTC مباشر' : c.type === 'REV' ? 'تدقيق DUR' : 'متابعة MMP'}
+                        </div>
+                        {/* 3-Stage Mini Badge */}
+                        <div className="flex items-center gap-1 pt-0.5">
+                          <span className={`text-[7.5px] px-1.5 py-0.2 rounded-md font-bold font-sans ${
+                            c.status === 'Completed' ? 'bg-emerald-950 text-emerald-300 border border-emerald-800/60' :
+                            c.status === 'Ongoing' ? 'bg-amber-950 text-amber-300 border border-amber-800/60 animate-pulse' :
+                            'bg-teal-950 text-teal-300 border border-teal-800/60'
+                          }`}>
+                            {c.status === 'Completed' ? '✓ تقرير جاهز' :
+                             c.status === 'Ongoing' ? '⏳ قيد الفحص' :
+                             '📥 تم الاستلام'}
+                          </span>
                         </div>
                       </div>
 
@@ -1896,7 +1983,19 @@ export default function PharmacistWorkspace({
             <MedicationInteractionsChart />
           </div>
         ) : (
-          <div className="flex-1 flex space-x-4 overflow-hidden">
+          <div className="flex-1 flex flex-col space-y-2.5 overflow-hidden">
+            {/* REAL-TIME PRESCRIPTION AUDIT PROGRESS BAR (تم الاستلام -> قيد الفحص -> تقرير جاهز) */}
+            <PrescriptionAuditProgressBar
+              currentStatus={activeCase.status}
+              caseId={activeCase.id}
+              patientName={activeCase.patientName}
+              serviceType={activeTab}
+              createdAt={activeCase.createdAt}
+              reportId={(activeCase as any).reportId}
+              onStatusChange={handleAuditStatusChange}
+            />
+
+            <div className="flex-1 flex space-x-4 overflow-hidden min-h-0">
           
           {/* LEFT PANEL: Zoom/Rotate viewer or patient quick clinical card */}
           <div className="flex-1 bg-slate-950 rounded-2xl p-4 border border-slate-800 flex flex-col justify-between overflow-hidden relative">
@@ -2859,7 +2958,8 @@ export default function PharmacistWorkspace({
             
           </div>
         </div>
-        )}
+      </div>
+      )}
             </Fragment>
           )}
 
@@ -4074,6 +4174,18 @@ export default function PharmacistWorkspace({
                 </div>
               </div>
             </div>
+          )}
+
+          {/* Pharmacist Profile Photo Modal */}
+          {showPhotoModal && (
+            <ProfilePhotoUploader
+              isOpen={showPhotoModal}
+              onClose={() => setShowPhotoModal(false)}
+              currentPhotoUrl={pharmacistPhoto || currentUser?.photoUrl}
+              title="تحديث صورة الصيدلي الإكلينيكي 👨‍⚕️"
+              subtitle="التقط صورة بالكاميرا أو ارفع صورة شخصية رسمية تظهر للمرضى"
+              onSavePhoto={handleSavePharmacistPhoto}
+            />
           )}
         </Fragment>
       )}

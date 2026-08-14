@@ -6,22 +6,29 @@ import {
 import { PatientProfile } from "../types";
 
 interface ProfilePhotoUploaderProps {
-  patient: PatientProfile | null;
+  patient?: PatientProfile | null;
+  currentPhotoUrl?: string | null;
+  title?: string;
+  subtitle?: string;
   isOpen: boolean;
   onClose: () => void;
   onSavePhoto: (photoDataUrl: string) => void;
 }
 
 const AVATAR_PRESETS = [
+  "https://images.unsplash.com/photo-1622253692010-333f2da6031d?q=80&w=256&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?q=80&w=256&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1537368910025-700350fe46c7?q=80&w=256&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1594824813576-953e5e490578?q=80&w=256&auto=format&fit=crop",
   "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=256&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=256&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=256&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=256&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=256&auto=format&fit=crop"
+  "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=256&auto=format&fit=crop"
 ];
 
 export const ProfilePhotoUploader: React.FC<ProfilePhotoUploaderProps> = ({
   patient,
+  currentPhotoUrl,
+  title,
+  subtitle,
   isOpen,
   onClose,
   onSavePhoto
@@ -29,7 +36,7 @@ export const ProfilePhotoUploader: React.FC<ProfilePhotoUploaderProps> = ({
   const [activeTab, setActiveTab] = useState<'camera' | 'upload' | 'preset'>('camera');
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
-  const [capturedImage, setCapturedImage] = useState<string | null>(patient?.profilePhotoUrl || null);
+  const [capturedImage, setCapturedImage] = useState<string | null>(currentPhotoUrl || patient?.profilePhotoUrl || null);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
   const [isCameraActive, setIsCameraActive] = useState(false);
 
@@ -37,12 +44,14 @@ export const ProfilePhotoUploader: React.FC<ProfilePhotoUploaderProps> = ({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Sync capturedImage when patient prop changes
+  // Sync capturedImage when prop changes
   useEffect(() => {
-    if (patient?.profilePhotoUrl) {
+    if (currentPhotoUrl) {
+      setCapturedImage(currentPhotoUrl);
+    } else if (patient?.profilePhotoUrl) {
       setCapturedImage(patient.profilePhotoUrl);
     }
-  }, [patient?.profilePhotoUrl]);
+  }, [currentPhotoUrl, patient?.profilePhotoUrl]);
 
   // Clean up camera stream when modal closes or unmounts
   useEffect(() => {
@@ -177,8 +186,8 @@ export const ProfilePhotoUploader: React.FC<ProfilePhotoUploaderProps> = ({
               <Camera className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="font-extrabold text-sm">تخصيص الصورة الشخصية</h3>
-              <p className="text-[10.5px] text-slate-400">التقط صورة مباشرة بالكاميرا أو اختر صورة من جهازك</p>
+              <h3 className="font-extrabold text-sm">{title || "تخصيص الصورة الشخصية"}</h3>
+              <p className="text-[10.5px] text-slate-400">{subtitle || "التقط صورة مباشرة بالكاميرا أو اختر صورة من جهازك"}</p>
             </div>
           </div>
 

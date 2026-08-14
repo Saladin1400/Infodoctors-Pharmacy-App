@@ -3,13 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { 
   Camera, Upload, Sparkles, CheckCircle2, AlertTriangle, 
   Lightbulb, Eye, FileText, ArrowLeft, RefreshCw, ShieldCheck, 
-  Image as ImageIcon, Zap, Lock, Info, ChevronRight, Check
+  Image as ImageIcon, Zap, Lock, Info, ChevronRight, Check,
+  UploadCloud, AlertCircle
 } from "lucide-react";
 import { PatientProfile } from "../types";
+import PrescriptionCameraCaptureOverlay from "./PrescriptionCameraCaptureOverlay";
 
 interface GuidedPrescriptionUploadProps {
   patient: PatientProfile;
@@ -28,8 +30,11 @@ export default function GuidedPrescriptionUpload({
   onUploadComplete,
   onCancel
 }: GuidedPrescriptionUploadProps) {
-  // Step flow: 1: Guidance & Checklist -> 2: Camera/Upload & Compression -> 3: Gemini AI Pre-Audit Summary
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  // Step flow: 1: Guidance & Checklist -> 2: Camera/Upload & Compression -> 3: Gemini AI Pre-Audit Summary -> 4: Uploading to Audit Queue
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+
+  // Live Camera Overlay modal state
+  const [isLiveCameraOpen, setIsLiveCameraOpen] = useState<boolean>(false);
 
   // Compression & File states
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -41,6 +46,10 @@ export default function GuidedPrescriptionUpload({
   const [originalSizeKb, setOriginalSizeKb] = useState<number>(0);
   const [compressedSizeKb, setCompressedSizeKb] = useState<number>(0);
   const [isCompressing, setIsCompressing] = useState<boolean>(false);
+
+  // Uploading state
+  const [isUploadingToQueue, setIsUploadingToQueue] = useState<boolean>(false);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
 
   // AI Pre-audit state
   const [isAiAnalyzing, setIsAiAnalyzing] = useState<boolean>(false);
@@ -189,14 +198,44 @@ export default function GuidedPrescriptionUpload({
 
   const handleConfirmAndSubmit = () => {
     if (compressedImage) {
-      onUploadComplete({
-        originalImage: originalImage || compressedImage,
-        compressedImage,
-        originalSizeKb,
-        compressedSizeKb,
-        aiAuditSummary: aiAuditResult
-      });
+      setIsUploadingToQueue(true);
+      setStep(4);
+      setUploadProgress(20);
+
+      const timer = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(timer);
+            return 90;
+          }
+          return prev + 35;
+        });
+      }, 150);
+
+      setTimeout(() => {
+        clearInterval(timer);
+        setUploadProgress(100);
+        setTimeout(() => {
+          setIsUploadingToQueue(false);
+          onUploadComplete({
+            originalImage: originalImage || compressedImage,
+            compressedImage,
+            originalSizeKb,
+            compressedSizeKb,
+            aiAuditSummary: aiAuditResult
+          });
+        }, 500);
+      }, 800);
     }
+  };
+
+  const handleCameraCaptureSuccess = (service: any, imageDataUrl: string) => {
+    setIsLiveCameraOpen(false);
+    setCompressedImage(imageDataUrl);
+    setOriginalImage(imageDataUrl);
+    setCompressedSizeKb(120);
+    setOriginalSizeKb(850);
+    setStep(2);
   };
 
   const percentSaved = originalSizeKb > 0 
@@ -204,8 +243,20 @@ export default function GuidedPrescriptionUpload({
     : 85;
 
   return (
-    <div className="bg-white rounded-3xl border border-teal-200/80 shadow-xl p-4 text-right space-y-4 font-sans leading-relaxed" style={{ direction: "rtl" }}>
+    <div className="bg-white rounded-3xl border border-teal-200/80 shadow-xl p-4 text-right space-y-4 font-sans leading-relaxed relative" style={{ direction: "rtl" }}>
       
+      {/* Live Camera Permission & Capture Overlay */}
+      {isLiveCameraOpen && (
+        <PrescriptionCameraCaptureOverlay
+          isOpen={isLiveCameraOpen}
+          onClose={() => setIsLiveCameraOpen(false)}
+          patient={patient}
+          onUploadSuccess={(service, imgUrl) => {
+            handleCameraCaptureSuccess(service, imgUrl);
+          }}
+        />
+      )}
+
       {/* HEADER WITH PROGRESS INDICATOR */}
       <div className="flex justify-between items-center border-b border-slate-100 pb-3">
         <div className="flex items-center space-x-2 space-x-reverse">
@@ -237,8 +288,8 @@ export default function GuidedPrescriptionUpload({
           <span>2. المعاينة والضغط</span>
         </div>
         <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
-        <div className={`flex items-center gap-1 px-2.5 py-1 rounded-xl transition-all ${step === 3 ? 'bg-teal-600 text-white shadow-xs' : 'text-slate-500'}`}>
-          <span>3. التدقيق الأولي 🤖</span>
+        <div className={`flex items-center gap-1 px-2.5 py-1 rounded-xl transition-all ${step === 3 || step === 4 ? 'bg-teal-600 text-white shadow-xs' : 'text-slate-500'}`}>
+          <span>3. التدقيق والرفع 🤖</span>
         </div>
       </div>
 
@@ -316,20 +367,30 @@ export default function GuidedPrescriptionUpload({
             />
 
             <button
-              onClick={() => cameraInputRef.current?.click()}
-              className="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-2xl font-extrabold text-xs transition-all shadow-md shadow-teal-600/20 flex items-center justify-center gap-2 cursor-pointer"
+              onClick={() => setIsLiveCameraOpen(true)}
+              className="w-full py-3.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white rounded-2xl font-black text-xs transition-all shadow-md shadow-teal-600/20 flex items-center justify-center gap-2 cursor-pointer"
             >
               <Camera className="w-4 h-4" />
-              <span>فتح الكاميرا والتقاط الروشتة الآن</span>
+              <span>📸 فتح الكاميرا المباشرة والتقاط الروشتة الآن</span>
             </button>
 
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-2xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer border border-slate-200"
-            >
-              <Upload className="w-4 h-4 text-slate-600" />
-              <span>اختيار صورة أو ملف PDF من الجهاز</span>
-            </button>
+            <div className="grid grid-cols-2 gap-2 pt-0.5">
+              <button
+                onClick={() => cameraInputRef.current?.click()}
+                className="py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl font-bold text-[11px] transition-all flex items-center justify-center gap-1.5 cursor-pointer border border-slate-200"
+              >
+                <Camera className="w-3.5 h-3.5 text-teal-600" />
+                <span>كاميرا النظام الافتراضية</span>
+              </button>
+
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl font-bold text-[11px] transition-all flex items-center justify-center gap-1.5 cursor-pointer border border-slate-200"
+              >
+                <Upload className="w-3.5 h-3.5 text-slate-600" />
+                <span>اختيار من الملفات / PDF</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -523,6 +584,46 @@ export default function GuidedPrescriptionUpload({
               </button>
             </>
           )}
+        </div>
+      )}
+
+      {/* STEP 4: UPLOADING TO AUDIT QUEUE STATE */}
+      {step === 4 && (
+        <div className="space-y-4 py-4 animate-in fade-in duration-200 text-center">
+          <div className="p-6 bg-gradient-to-b from-slate-900 via-teal-950 to-slate-950 text-white rounded-3xl border border-teal-500/40 space-y-4 shadow-xl">
+            {/* Status Label Banner */}
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-teal-500/20 border border-teal-400/40 text-teal-300 text-xs font-black shadow-xs font-mono">
+              <div className="w-2 h-2 rounded-full bg-teal-400 animate-ping"></div>
+              <span>Uploading to Audit Queue</span>
+            </div>
+
+            <div className="w-14 h-14 rounded-2xl bg-teal-900/40 border border-teal-400/50 flex items-center justify-center mx-auto text-teal-300">
+              <UploadCloud className="w-7 h-7 text-teal-300 animate-bounce" />
+            </div>
+
+            <div className="space-y-1">
+              <h4 className="text-sm font-extrabold text-white">
+                جارِ الرفع والتحويل إلى قائمة التدقيق الإكلينيكي للصيدلي...
+              </h4>
+              <p className="text-[11px] text-teal-200">
+                يتم ربط الروشتة بملف المريض {patient.fullName} وإجراء فحص التفاعلات والجرعات DUR
+              </p>
+            </div>
+
+            {/* Progress indicator */}
+            <div className="space-y-1 max-w-xs mx-auto pt-1">
+              <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
+                <div 
+                  className="h-full bg-gradient-to-r from-teal-500 to-emerald-400 transition-all duration-300 rounded-full"
+                  style={{ width: `${uploadProgress}%` }}
+                ></div>
+              </div>
+              <div className="flex justify-between text-[9.5px] font-mono text-slate-400">
+                <span>حجم الملف المضغوط: {compressedSizeKb} KB</span>
+                <span>{uploadProgress}%</span>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

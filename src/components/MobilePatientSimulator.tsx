@@ -25,6 +25,7 @@ import ProfilePhotoUploader from "./ProfilePhotoUploader";
 import PharmacistProfileModal from "./PharmacistProfileModal";
 import PharmacistsDirectory from "./PharmacistsDirectory";
 import GuidedPrescriptionUpload from "./GuidedPrescriptionUpload";
+import PrescriptionCameraCaptureOverlay from "./PrescriptionCameraCaptureOverlay";
 import { Fingerprint, Lock, UserCheck } from "lucide-react";
 import { registerPushNotifications, triggerLocalNativeNotification } from "../lib/pushNotifications";
 import { useLanguage, LanguageSwitcher } from "../LanguageContext";
@@ -507,6 +508,8 @@ export default function MobilePatientSimulator({
 
   // Profile Photo state & uploader modal state
   const [isPhotoUploaderOpen, setIsPhotoUploaderOpen] = useState(false);
+  // Prescription Camera Capture Overlay state
+  const [isPrescriptionCaptureOpen, setIsPrescriptionCaptureOpen] = useState(false);
   const [profilePhotos, setProfilePhotos] = useState<Record<string, string>>(() => {
     try {
       const saved = localStorage.getItem("patient_profile_photos");
@@ -2134,26 +2137,26 @@ export default function MobilePatientSimulator({
               {/* TAB 4: أجندة المواعيد */}
               {screen === 'agenda' && (
                 <div className="space-y-3.5 animate-in fade-in duration-200">
-                  <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
-                    <h3 className="text-xs font-black text-slate-800 flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-teal-600" />
+                  <div className="bg-white p-4 rounded-2xl border-2 border-slate-300 shadow-md space-y-3.5">
+                    <h3 className="text-xs font-black text-slate-950 flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-teal-700" />
                       أجندة المواعيد والحجوزات القادمة
                     </h3>
-                    <p className="text-[10.5px] text-slate-500">استعراض المواعيد المحجوزة ورابط العيادة الافتراضية المباشرة</p>
+                    <p className="text-[11px] text-slate-600 font-bold leading-normal">استعراض المواعيد المحجوزة ورابط العيادة الافتراضية المباشرة</p>
 
-                    <div className="space-y-2.5 pt-1">
+                    <div className="space-y-3 pt-1">
                       {bookedServices && (bookedServices.otc?.length > 0 || bookedServices.revisions?.length > 0 || bookedServices.plan?.length > 0) ? (
                         [...(bookedServices.otc || []), ...(bookedServices.revisions || []), ...(bookedServices.plan || [])].map((item: any, i: number) => (
-                          <div key={i} className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                          <div key={i} className="p-3.5 bg-slate-50 rounded-xl border-2 border-slate-300 shadow-xs space-y-2.5">
                             <div className="flex justify-between items-start">
                               <div>
-                                <span className="text-[9.5px] font-bold px-2 py-0.5 rounded bg-teal-100 text-teal-800">
+                                <span className="text-[10px] font-black px-2.5 py-0.5 rounded bg-teal-800 text-white shadow-2xs">
                                   {item.specialty || "استشارة عامة"}
                                 </span>
-                                <h4 className="text-xs font-bold text-slate-900 mt-1">{item.complaint || "طلب استشارة صيدلانية معتمدة"}</h4>
-                                <p className="text-[10px] text-slate-500 font-mono mt-0.5">📅 الموعد: {item.bookingDate || "اليوم"} • {item.bookingTime || "06:00 PM"}</p>
+                                <h4 className="text-xs font-black text-slate-950 mt-1.5 leading-snug">{item.complaint || "طلب استشارة صيدلانية معتمدة"}</h4>
+                                <p className="text-[10.5px] text-slate-700 font-mono font-bold mt-1">📅 الموعد: {item.bookingDate || "اليوم"} • {item.bookingTime || "06:00 PM"}</p>
                               </div>
-                              <span className="text-[9.5px] font-extrabold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
+                              <span className="text-[10px] font-black px-2.5 py-0.5 rounded bg-emerald-700 text-white border border-emerald-800 shadow-2xs">
                                 مؤكدة ✓
                               </span>
                             </div>
@@ -2163,17 +2166,17 @@ export default function MobilePatientSimulator({
                                 href={item.meetUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10.5px] font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm"
+                                className="w-full py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-[11px] font-black flex items-center justify-center gap-1.5 transition-all shadow-sm cursor-pointer"
                               >
                                 <Video className="w-4 h-4" />
                                 <span>الانضمام للعيادة الافتراضية (Google Meet)</span>
                               </a>
                             ) : (
-                              <div className="text-[10px] text-slate-600 bg-slate-100 p-2 rounded-lg flex justify-between items-center">
+                              <div className="text-[10.5px] text-slate-900 font-bold bg-slate-200/90 p-2.5 rounded-xl flex justify-between items-center border border-slate-300">
                                 <span>جاري تجهيز رابط العيادة الافتراضية مع الصيدلي...</span>
                                 <button 
                                   onClick={() => setScreen('videocall')}
-                                  className="text-teal-700 font-bold hover:underline"
+                                  className="text-teal-800 font-black hover:underline cursor-pointer bg-white px-2 py-0.5 rounded-lg border border-teal-200 shadow-2xs"
                                 >
                                   دخول العيادة
                                 </button>
@@ -2183,20 +2186,20 @@ export default function MobilePatientSimulator({
                             {/* Service Rating Trigger */}
                             <button
                               onClick={() => handleOpenPharmacistProfile(item.pharmacistLicense || "LIC-12345")}
-                              className="w-full py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200/70 rounded-lg text-[10.5px] font-bold flex items-center justify-center gap-1.5 transition-all shadow-2xs cursor-pointer mt-1"
+                              className="w-full py-2 bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300 rounded-xl text-[11px] font-black flex items-center justify-center gap-1.5 transition-all shadow-2xs cursor-pointer mt-1"
                             >
                               <span>⭐ تقييم استشارة الصيدلي وتوثيق تجربتك</span>
                             </button>
                           </div>
                         ))
                       ) : (
-                        <div className="text-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-slate-400">
-                          <Calendar className="w-8 h-8 mx-auto text-slate-300 mb-2" />
-                          <p className="text-xs font-bold text-slate-600">لا توجد أي مواعيد محجوزة حالياً</p>
-                          <p className="text-[10px] text-slate-400 mt-0.5">يمكنك حجز استشارة صيدلانية من تبويب "طلب الخدمات"</p>
+                        <div className="text-center py-8 bg-slate-50 rounded-xl border-2 border-dashed border-slate-300 text-slate-600">
+                          <Calendar className="w-8 h-8 mx-auto text-slate-400 mb-2" />
+                          <p className="text-xs font-black text-slate-900">لا توجد أي مواعيد محجوزة حالياً</p>
+                          <p className="text-[10.5px] text-slate-600 font-bold mt-1">يمكنك حجز استشارة صيدلانية من تبويب "طلب الخدمات"</p>
                           <button
                             onClick={() => setScreen('services')}
-                            className="mt-3 px-3 py-1.5 bg-teal-600 text-white rounded-lg text-xs font-bold shadow-sm"
+                            className="mt-3 px-4 py-2 bg-teal-700 hover:bg-teal-800 text-white rounded-xl text-xs font-black shadow-sm transition-all cursor-pointer"
                           >
                             احجز موعداً الآن
                           </button>
@@ -2408,23 +2411,53 @@ export default function MobilePatientSimulator({
               {screen === 'scanner' && (
                 <div className="space-y-3 animate-in fade-in duration-200">
                   <div className="flex justify-between items-center mb-1">
-                    <button onClick={() => setScreen('services')} className="px-3 py-1 bg-slate-200 text-slate-800 rounded-lg text-xs font-bold flex items-center gap-1">
+                    <button onClick={() => setScreen('services')} className="px-3 py-1 bg-slate-200 text-slate-800 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer">
                       <ArrowLeft className="w-3.5 h-3.5" /> العودة للخدمات
                     </button>
-                    <h3 className="text-xs font-bold text-slate-900">ماسح الروشتة الموجه</h3>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setIsPrescriptionCaptureOpen(true)}
+                        className="px-2.5 py-1 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-[10.5px] font-bold flex items-center gap-1 cursor-pointer shadow-xs"
+                      >
+                        <Camera className="w-3 h-3" />
+                        <span>التقاط فوري بالكاميرا</span>
+                      </button>
+                      <h3 className="text-xs font-bold text-slate-900">ماسح الروشتة الموجه</h3>
+                    </div>
                   </div>
-                  <GuidedPrescriptionUpload
-                    patient={activePatient}
-                    onUploadComplete={(data) => {
-                      setScannedImage(data.compressedImage);
-                      alert(`تم رفع وتدقيق الروشتة بنجاح! 
-• الحجم الأولي: ${data.originalSizeKb} KB
-• الحجم المضغوط: ${data.compressedSizeKb} KB
-• تم التدقيق الأولي بالذكاء الاصطناعي بنجاح والإحالة للصيدلي الإكلينيكي د. أميرة أحمد.`);
-                      setScreen('agenda');
-                    }}
-                    onCancel={() => setScreen('services')}
-                  />
+                  {activePatient && (
+                    <GuidedPrescriptionUpload
+                      patient={activePatient}
+                      onUploadComplete={async (data) => {
+                        setScannedImage(data.compressedImage);
+                        const newRev = {
+                          id: `REV-${Math.floor(100 + Math.random() * 900)}`,
+                          patientId: activePatient.nationalId,
+                          patientName: activePatient.fullName,
+                          specialty: "OB-GYN",
+                          status: "In-Waiting",
+                          prescriptionImageUrl: data.compressedImage,
+                          createdAt: new Date().toISOString()
+                        };
+                        setBookedServices(prev => ({
+                          ...prev,
+                          revisions: [newRev, ...(prev.revisions || [])]
+                        }));
+                        setNotifications(prev => [{
+                          id: `notif-${Date.now()}`,
+                          recipient: 'patient',
+                          title: "📷 تم رفع الروشتة إلى قائمة التدقيق الإكلينيكي",
+                          body: `تم إرسال الروشتة برقم مرجعي (${newRev.id}) وجاري فحصها وتدقيق الجرعات بواسطة الصيدلي السريري.`,
+                          type: 'PrescriptionAudit',
+                          read: false,
+                          createdAt: new Date().toISOString()
+                        }, ...prev]);
+                        onServiceCreated();
+                        setScreen('agenda');
+                      }}
+                      onCancel={() => setScreen('services')}
+                    />
+                  )}
                 </div>
               )}
 
@@ -2705,6 +2738,28 @@ export default function MobilePatientSimulator({
               </div>
               <ChevronRight className="w-3.5 h-3.5 text-amber-600" />
             </button>
+
+            {/* QUICK CAMERA SCAN & UPLOAD TO AUDIT QUEUE HERO BANNER */}
+            <div className="bg-gradient-to-r from-teal-900 via-cyan-950 to-slate-950 rounded-2xl p-3.5 text-white shadow-md border border-teal-500/40 flex items-center justify-between">
+              <div className="flex items-center space-x-3 space-x-reverse">
+                <div className="w-10 h-10 bg-teal-500/20 text-teal-300 border border-teal-400/50 rounded-xl flex items-center justify-center font-bold shadow-inner">
+                  <Camera className="w-5 h-5 animate-pulse text-teal-300" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <h5 className="font-black text-xs text-white">التقاط الروشتة المباشر بالكاميرا</h5>
+                    <span className="text-[8.5px] bg-teal-400/20 text-teal-300 border border-teal-400/40 px-1.5 py-0.2 rounded-full font-bold">فوري ⚡</span>
+                  </div>
+                  <p className="text-[10px] text-teal-200 mt-0.5 font-medium">مسح بالكاميرا وإحالة مباشرة لقائمة التدقيق (Uploading to Audit Queue)</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsPrescriptionCaptureOpen(true)}
+                className="px-3 py-2 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 rounded-xl text-xs font-black transition-all shadow-md hover:scale-105 cursor-pointer whitespace-nowrap"
+              >
+                📸 فتح الكاميرا
+              </button>
+            </div>
 
             {/* PHARMACISTS DIRECTORY & PROFILES TRIGGER CARD */}
             <button
@@ -3751,46 +3806,46 @@ export default function MobilePatientSimulator({
 
         {/* SCREEN: OTC CONSULTATION BOOKING SCREEN */}
         {screen === 'otc-book' && (
-          <div className="flex-1 p-4 space-y-4 overflow-y-auto bg-white">
-            <div className="bg-teal-50 p-3 rounded-2xl border border-teal-100 flex items-start space-x-2 space-x-reverse">
-              <Sparkles className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
-              <p className="text-[10.5px] text-teal-800 leading-tight">
-                أنت تحجز الآن استشارة سريرية لا وصفية بقيمة <strong>250 ج.م</strong>. سيقوم صيدلي أخصائي معتمد بفتح مكالمة فيديو حية معك خلال الموعد.
+          <div className="flex-1 p-4 space-y-4 overflow-y-auto bg-slate-50">
+            <div className="bg-teal-900 text-white p-3.5 rounded-2xl border border-teal-700 shadow-md flex items-start space-x-2.5 space-x-reverse">
+              <Sparkles className="w-5 h-5 text-teal-300 shrink-0 mt-0.5" />
+              <p className="text-[11px] text-teal-50 font-medium leading-relaxed">
+                أنت تحجز الآن استشارة سريرية لا وصفية بقيمة <strong className="text-teal-200 font-extrabold underline decoration-teal-400">250 ج.م</strong>. سيقوم صيدلي أخصائي معتمد بفتح مكالمة فيديو حية معك خلال الموعد.
               </p>
             </div>
 
-            <div className="space-y-1 text-right">
-              <label className="text-xs font-bold text-slate-700 block text-right">👤 المريض المستفيد:</label>
-              <div className="bg-slate-100 p-2.5 rounded-xl text-xs font-bold text-slate-800">
+            <div className="space-y-1.5 text-right">
+              <label className="text-xs font-black text-slate-900 block text-right">👤 المريض المستفيد:</label>
+              <div className="bg-white p-3 rounded-xl border border-slate-300 shadow-xs text-xs font-black text-slate-900">
                 {activePatient?.fullName}
-                {activePatient?.pregnancyLactation?.isPregnant && <span className="text-rose-600 text-[10px] block font-normal">(المريضة حامل بالثلث الثاني - يجب تجديد الحيطة الدوائية)</span>}
+                {activePatient?.pregnancyLactation?.isPregnant && <span className="text-rose-700 text-[10px] block font-bold mt-0.5">(المريضة حامل بالثلث الثاني - يجب تجديد الحيطة الدوائية)</span>}
               </div>
             </div>
 
-            <div className="space-y-1 text-right">
-              <label className="text-xs font-bold text-slate-700 block text-right">⚕️ التخصص الصيدلاني المطلوب:</label>
+            <div className="space-y-1.5 text-right">
+              <label className="text-xs font-black text-slate-900 block text-right">⚕️ التخصص الصيدلاني المطلوب:</label>
               <select
                 value={bookingSpecialty}
                 onChange={(e) => setBookingSpecialty(e.target.value as ApprovedSpecialty)}
-                className="w-full text-xs p-2.5 border border-slate-200 rounded-xl bg-slate-50 outline-none font-medium"
+                className="w-full text-xs p-3 border-2 border-slate-300 rounded-xl bg-white outline-none font-bold text-slate-900 shadow-xs focus:border-teal-600 transition-all cursor-pointer"
               >
                 {ApprovedSpecialtiesList.map((spec) => (
-                  <option key={spec.key} value={spec.key}>
+                  <option key={spec.key} value={spec.key} className="text-slate-900 font-bold">
                     {spec.ar} ({spec.key})
                   </option>
                 ))}
               </select>
             </div>
 
-            <div className="space-y-1 text-right">
+            <div className="space-y-1.5 text-right">
               <div className="flex justify-between items-center mb-1" style={{ direction: "rtl" }}>
-                <label className="text-xs font-bold text-slate-700 block text-right">📝 تفاصيل الشكوى المرضية والأعراض الحالية:</label>
+                <label className="text-xs font-black text-slate-900 block text-right">📝 تفاصيل الشكوى المرضية والأعراض الحالية:</label>
                 <button
                   type="button"
                   onClick={() => {
                     setBookingComplaint("أعاني من صداع نصفي متكرر مع زغللة بالعين وارتفاع في ضغط الدم، أرغب في استشارة سريرية سريعة لبحث التعديل الدوائي والبدائل المعتمدة.");
                   }}
-                  className="text-[10px] bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 px-2 py-0.5 rounded-lg font-bold cursor-pointer transition-colors"
+                  className="text-[10px] bg-teal-100 hover:bg-teal-200 text-teal-950 border border-teal-300 px-2.5 py-1 rounded-lg font-black cursor-pointer transition-all shadow-xs"
                 >
                   ⚡ تعبئة الشكوى تلقائياً
                 </button>
@@ -3800,29 +3855,29 @@ export default function MobilePatientSimulator({
                 value={bookingComplaint}
                 onChange={(e) => setBookingComplaint(e.target.value)}
                 rows={4}
-                className="w-full text-xs p-2.5 border border-slate-200 rounded-xl outline-none bg-slate-50 text-right focus:bg-white focus:border-teal-500 transition-all text-slate-900 placeholder:text-slate-400"
+                className="w-full text-xs p-3 border-2 border-slate-300 rounded-xl outline-none bg-white text-right focus:border-teal-600 transition-all text-slate-950 font-bold placeholder:text-slate-500 shadow-xs"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-2 text-right">
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700 block">تاريخ الموعد:</label>
+            <div className="grid grid-cols-2 gap-2.5 text-right">
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-slate-900 block">تاريخ الموعد:</label>
                 <input
                   type="date"
                   value={bookingDate}
                   min="2026-05-28"
                   onChange={(e) => setBookingDate(e.target.value)}
-                  className="w-full text-xs p-2 border border-slate-200 rounded-xl outline-none bg-slate-50 font-medium"
+                  className="w-full text-xs p-2.5 border-2 border-slate-300 rounded-xl outline-none bg-white font-bold text-slate-900 shadow-xs focus:border-teal-600 transition-all"
                 />
               </div>
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700 block">توقيت الاستشارة:</label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-slate-900 block">توقيت الاستشارة:</label>
                 <input
                   type="time"
                   value={bookingTime}
                   min={currentMinTime}
                   onChange={(e) => setBookingTime(e.target.value)}
-                  className="w-full text-xs p-2 border border-slate-200 rounded-xl outline-none bg-slate-50 font-medium"
+                  className="w-full text-xs p-2.5 border-2 border-slate-300 rounded-xl outline-none bg-white font-bold text-slate-900 shadow-xs focus:border-teal-600 transition-all"
                 />
               </div>
             </div>
@@ -3833,7 +3888,7 @@ export default function MobilePatientSimulator({
                 setScreen('payment');
               }}
               disabled={!bookingComplaint.trim()}
-              className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs py-3 rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-2 block"
+              className="w-full bg-teal-700 hover:bg-teal-800 text-white font-black text-xs py-3.5 rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-2 block cursor-pointer"
             >
               متابعة الدفع المسبق الآمن (250 ج.م)
             </button>
@@ -3842,26 +3897,26 @@ export default function MobilePatientSimulator({
 
         {/* SCREEN: REVISION BOOKING SCREEN */}
         {screen === 'rev-book' && (
-          <div className="flex-1 p-4 space-y-4 overflow-y-auto bg-white">
-            <div className="bg-cyan-50 p-3 rounded-2xl border border-cyan-100/80 flex items-start space-x-2 space-x-reverse text-right">
-              <Shield className="w-5 h-5 text-cyan-600 shrink-0 mt-0.5" />
+          <div className="flex-1 p-4 space-y-4 overflow-y-auto bg-slate-50">
+            <div className="bg-cyan-900 text-white p-3.5 rounded-2xl border border-cyan-700 shadow-md flex items-start space-x-2.5 space-x-reverse text-right">
+              <Shield className="w-5 h-5 text-cyan-300 shrink-0 mt-0.5" />
               <div>
-                <h6 className="text-[11px] font-bold text-cyan-900">مراجعة الروشتة السريرية (DUR)</h6>
-                <p className="text-[10px] text-cyan-700 leading-tight">
+                <h6 className="text-[11px] font-black text-cyan-200">مراجعة الروشتة السريرية (DUR)</h6>
+                <p className="text-[10px] text-cyan-50 leading-tight font-medium mt-0.5">
                   ارفع صورة الروشتة الحالية وسيقوم صيدلي إكلينيكي بمطابقتها مع حساسيتك ضد الأدوية ومعايير EDA وبحث التعارضات الطبية.
                 </p>
               </div>
             </div>
 
-            <div className="space-y-1 text-right">
-              <label className="text-xs font-bold text-slate-700 block text-right">🛡️ التخصص الطبي المعني بالروشتة:</label>
+            <div className="space-y-1.5 text-right">
+              <label className="text-xs font-black text-slate-900 block text-right">🛡️ التخصص الطبي المعني بالروشتة:</label>
               <select
                 value={bookingSpecialty}
                 onChange={(e) => setBookingSpecialty(e.target.value as ApprovedSpecialty)}
-                className="w-full text-xs p-2.5 border border-slate-200 rounded-xl bg-slate-50 outline-none"
+                className="w-full text-xs p-3 border-2 border-slate-300 rounded-xl bg-white outline-none font-bold text-slate-900 shadow-xs focus:border-cyan-600 transition-all cursor-pointer"
               >
                 {ApprovedSpecialtiesList.map((spec) => (
-                  <option key={spec.key} value={spec.key}>
+                  <option key={spec.key} value={spec.key} className="text-slate-900 font-bold">
                     {spec.ar} ({spec.key})
                   </option>
                 ))}
@@ -3869,46 +3924,46 @@ export default function MobilePatientSimulator({
             </div>
 
             {/* MOCK SCANNER / UPLOAD BOX */}
-            <div className="space-y-1 text-right">
-              <label className="text-xs font-bold text-slate-700 block">📸 تحميل صورة الروشتة الطبية:</label>
+            <div className="space-y-1.5 text-right">
+              <label className="text-xs font-black text-slate-900 block">📸 تحميل صورة الروشتة الطبية:</label>
               
-              <div className="border-2 border-dashed border-slate-200 rounded-xl p-4 bg-slate-50 flex flex-col items-center justify-center text-center space-y-2 cursor-pointer hover:bg-slate-100/50 hover:border-cyan-500 transition-all"
+              <div className="border-2 border-dashed border-slate-400 rounded-xl p-4 bg-white flex flex-col items-center justify-center text-center space-y-2 cursor-pointer hover:bg-slate-100 hover:border-cyan-600 transition-all shadow-xs"
                 onClick={() => setScreen('scanner')}
               >
                 {scannedImage ? (
-                  <div className="relative w-full h-32 rounded-lg overflow-hidden border border-slate-300">
+                  <div className="relative w-full h-32 rounded-lg overflow-hidden border border-slate-400">
                     <img src={scannedImage} alt="Prescription" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-xs text-white font-bold space-x-1">
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-xs text-white font-black space-x-1">
                       <Camera className="w-4 h-4" />
                       <span>اضغط لتغيير الصورة الممسوحة</span>
                     </div>
                   </div>
                 ) : (
                   <>
-                    <Camera className="w-8 h-8 text-slate-400 group-hover:text-cyan-600" />
-                    <p className="text-[11px] text-slate-500 font-bold">التقط صورة بالكاميرا أو اختر روشتة للاختبار</p>
-                    <span className="text-[9px] text-slate-400 bg-slate-200 px-2 py-0.5 rounded">محاكاة ملف رقمي</span>
+                    <Camera className="w-8 h-8 text-cyan-700 group-hover:text-cyan-800" />
+                    <p className="text-[11px] text-slate-900 font-black">التقط صورة بالكاميرا أو اختر روشتة للاختبار</p>
+                    <span className="text-[9px] text-slate-800 bg-slate-200 px-2.5 py-0.5 rounded font-bold">محاكاة ملف رقمي</span>
                   </>
                 )}
               </div>
             </div>
 
             {/* DateTime row */}
-            <div className="grid grid-cols-2 gap-2 text-right">
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700 block">التاريخ:</label>
+            <div className="grid grid-cols-2 gap-2.5 text-right">
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-slate-900 block">التاريخ:</label>
                 <input
                   type="date"
                   value={bookingDate}
-                  className="w-full text-xs p-2 border border-slate-200 rounded-xl bg-slate-50"
+                  className="w-full text-xs p-2.5 border-2 border-slate-300 rounded-xl bg-white font-bold text-slate-900 shadow-xs focus:border-cyan-600 transition-all"
                   onChange={(e) => setBookingDate(e.target.value)}
                 />
               </div>
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700 block">الساعة:</label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-slate-900 block">الساعة:</label>
                 <input
                   type="time"
-                  className="w-full text-xs p-2 border border-slate-200 rounded-xl bg-slate-50"
+                  className="w-full text-xs p-2.5 border-2 border-slate-300 rounded-xl bg-white font-bold text-slate-900 shadow-xs focus:border-cyan-600 transition-all"
                   onChange={(e) => setBookingTime(e.target.value)}
                 />
               </div>
@@ -3919,7 +3974,7 @@ export default function MobilePatientSimulator({
                 setPaymentServiceType('REV');
                 setScreen('payment');
               }}
-              className="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs py-3 rounded-xl shadow-lg transition-all"
+              className="w-full bg-cyan-700 hover:bg-cyan-800 text-white font-black text-xs py-3.5 rounded-xl shadow-md hover:shadow-lg transition-all cursor-pointer"
             >
               متابعة الدفع المسبق الآمن (350 ج.م)
             </button>
@@ -5900,6 +5955,32 @@ export default function MobilePatientSimulator({
         onClose={() => setIsPhotoUploaderOpen(false)}
         onSavePhoto={handleSaveProfilePhoto}
       />
+
+      {/* PRESCRIPTION CAMERA CAPTURE OVERLAY MODAL */}
+      {activePatient && (
+        <PrescriptionCameraCaptureOverlay
+          isOpen={isPrescriptionCaptureOpen}
+          onClose={() => setIsPrescriptionCaptureOpen(false)}
+          patient={activePatient}
+          onUploadSuccess={(newService, imgUrl) => {
+            setScannedImage(imgUrl);
+            setBookedServices(prev => ({
+              ...prev,
+              revisions: [newService, ...(prev.revisions || [])]
+            }));
+            setNotifications(prev => [{
+              id: `notif-${Date.now()}`,
+              recipient: 'patient',
+              title: "📷 تم رفع الروشتة إلى قائمة التدقيق الإكلينيكي",
+              body: `تم إرسال الروشتة برقم مرجعي (${newService.id}) وجاري فحصها وتدقيق الجرعات بواسطة الصيدلي السريري.`,
+              type: 'PrescriptionAudit',
+              read: false,
+              createdAt: new Date().toISOString()
+            }, ...prev]);
+            onServiceCreated();
+          }}
+        />
+      )}
 
       {/* Internal Phone Bottom Home Bar Indicator */}
       <div className="w-full flex justify-center py-1">

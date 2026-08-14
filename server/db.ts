@@ -2,21 +2,26 @@ import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
 // Connection with fallback setting
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/clinical_platform";
+const MONGODB_URI = process.env.MONGODB_URI;
 
 let isDbConnected = false;
 
 export async function connectDB() {
+  if (!MONGODB_URI) {
+    console.log("ℹ️ In-memory high performance database initialized (MONGODB_URI not provided).");
+    isDbConnected = false;
+    return;
+  }
   try {
     mongoose.set("strictQuery", false);
     await mongoose.connect(MONGODB_URI, {
-      serverSelectionTimeoutMS: 2000,
-      connectTimeoutMS: 2000,
+      serverSelectionTimeoutMS: 2500,
+      connectTimeoutMS: 2500,
     });
     console.log("🟢 Successfully connected to MongoDB via Mongoose.");
     isDbConnected = true;
   } catch (err: any) {
-    console.warn("⚠️ Mongoose connection failed. Backing up with pristine in-memory simulated database.");
+    console.log("ℹ️ MongoDB connection not available; using in-memory simulated database.");
     isDbConnected = false;
   }
 }
