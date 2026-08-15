@@ -9,6 +9,7 @@ import {
   ArrowLeft, Check, RefreshCw, AlertCircle, Award, 
   Layers, Stethoscope, FileText, Send, Zap
 } from "lucide-react";
+import { useLanguage } from "../LanguageContext";
 
 export type PrescriptionAuditStage = 'In-Waiting' | 'Ongoing' | 'Completed';
 
@@ -33,6 +34,7 @@ export default function PrescriptionAuditProgressBar({
   onStatusChange,
   isReadOnly = false
 }: PrescriptionAuditProgressBarProps) {
+  const { t, isRtl, dir } = useLanguage();
   const [isUpdating, setIsUpdating] = useState(false);
 
   // Normalize status
@@ -40,10 +42,6 @@ export default function PrescriptionAuditProgressBar({
     currentStatus === 'Completed' ? 'Completed' :
     currentStatus === 'Ongoing' ? 'Ongoing' : 'In-Waiting';
 
-  // Compute stage indices
-  // 1: تم الاستلام (Index 0)
-  // 2: قيد الفحص (Index 1)
-  // 3: تقرير جاهز (Index 2)
   const currentStageIndex = 
     normalizedStatus === 'Completed' ? 2 :
     normalizedStatus === 'Ongoing' ? 1 : 0;
@@ -51,26 +49,26 @@ export default function PrescriptionAuditProgressBar({
   const stages = [
     {
       key: 'In-Waiting' as PrescriptionAuditStage,
-      title: 'تم الاستلام',
-      subtitle: 'وصلت الروشتة لطابور التدقيق',
+      title: t('pharmacist.stage_received', 'تم الاستلام'),
+      subtitle: isRtl ? 'وصلت الروشتة لطابور التدقيق' : 'Prescription queued',
       icon: Clock,
-      badge: 'المرحلة 1',
+      badge: isRtl ? 'المرحلة 1' : 'Stage 1',
       color: 'teal'
     },
     {
       key: 'Ongoing' as PrescriptionAuditStage,
-      title: 'قيد الفحص',
-      subtitle: 'تدقيق الجرعات والـ DUR السريري',
+      title: t('pharmacist.stage_review', 'قيد الفحص'),
+      subtitle: isRtl ? 'تدقيق الجرعات والـ DUR السريري' : 'Dosage & DUR clinical review',
       icon: Search,
-      badge: 'المرحلة 2',
+      badge: isRtl ? 'المرحلة 2' : 'Stage 2',
       color: 'amber'
     },
     {
       key: 'Completed' as PrescriptionAuditStage,
-      title: 'تقرير جاهز',
-      subtitle: 'تم توقيع التقرير الطبي واكتماله',
+      title: t('pharmacist.stage_ready', 'تقرير جاهز'),
+      subtitle: isRtl ? 'تم توقيع التقرير الطبي واكتماله' : 'Clinical report signed & ready',
       icon: Award,
-      badge: 'المرحلة 3',
+      badge: isRtl ? 'المرحلة 3' : 'Stage 3',
       color: 'emerald'
     }
   ];
@@ -91,7 +89,6 @@ export default function PrescriptionAuditProgressBar({
     }
   };
 
-  // Calculate percentage width for progress line
   const progressPercent = 
     currentStageIndex === 0 ? 15 :
     currentStageIndex === 1 ? 55 : 100;
@@ -99,7 +96,7 @@ export default function PrescriptionAuditProgressBar({
   return (
     <div 
       className="bg-slate-950/80 border border-slate-800/90 rounded-2xl p-3 sm:p-4 shadow-lg space-y-3 font-sans relative overflow-hidden"
-      style={{ direction: "rtl" }}
+      style={{ direction: dir }}
     >
       {/* Background ambient glow based on stage */}
       <div 
@@ -114,7 +111,7 @@ export default function PrescriptionAuditProgressBar({
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-teal-400 animate-ping"></div>
           <h4 className="text-xs font-black text-slate-200 flex items-center gap-1.5">
-            <span>مراحل تدقيق الروشتة الإكلينيكية</span>
+            <span>{isRtl ? "مراحل تدقيق الروشتة الإكلينيكية" : "Prescription Audit Stages"}</span>
             <span className="text-[10px] text-teal-400 font-mono">({caseId})</span>
           </h4>
         </div>
@@ -123,7 +120,7 @@ export default function PrescriptionAuditProgressBar({
         <div className="flex items-center gap-2 text-[10px]">
           <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-900 border border-slate-800 text-slate-400 font-mono font-medium">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-            <span>تحديث لحظي متزامن</span>
+            <span>{isRtl ? "تحديث لحظي متزامن" : "Live Synchronized"}</span>
           </div>
 
           {!isReadOnly && (
@@ -133,10 +130,10 @@ export default function PrescriptionAuditProgressBar({
                   onClick={() => handleStageClick('Ongoing')}
                   disabled={isUpdating}
                   className="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1 cursor-pointer"
-                  title="نقل الحالة إلى قيد الفحص السريري"
+                  title={isRtl ? "نقل الحالة إلى قيد الفحص السريري" : "Move to Ongoing Review"}
                 >
                   <Search className="w-3 h-3 text-amber-400" />
-                  <span>بدء الفحص السريري ⚡</span>
+                  <span>{t('pharmacist.start_audit_quick', 'بدء الفحص السريري ⚡')}</span>
                 </button>
               )}
 
@@ -145,10 +142,10 @@ export default function PrescriptionAuditProgressBar({
                   onClick={() => handleStageClick('Completed')}
                   disabled={isUpdating}
                   className="px-2 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1 cursor-pointer"
-                  title="نقل الحالة إلى تقرير جاهز"
+                  title={isRtl ? "نقل الحالة إلى تقرير جاهز" : "Approve as Completed"}
                 >
                   <Award className="w-3 h-3 text-emerald-400" />
-                  <span>اعتماد التقرير جاهزاً ✓</span>
+                  <span>{t('pharmacist.approve_report_quick', 'اعتماد التقرير جاهزاً ✓')}</span>
                 </button>
               )}
 
@@ -157,10 +154,10 @@ export default function PrescriptionAuditProgressBar({
                   onClick={() => handleStageClick('Ongoing')}
                   disabled={isUpdating}
                   className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1 cursor-pointer"
-                  title="إعادة فتح الحالة للمراجعة"
+                  title={isRtl ? "إعادة فتح الحالة للمراجعة" : "Reopen for Review"}
                 >
                   <RefreshCw className="w-3 h-3 text-slate-400" />
-                  <span>إعادة فتح للفحص</span>
+                  <span>{t('pharmacist.reopen_audit_quick', 'إعادة فتح للفحص')}</span>
                 </button>
               )}
             </div>
@@ -199,46 +196,39 @@ export default function PrescriptionAuditProgressBar({
                 {/* Step Circle Node */}
                 <div 
                   className={`w-10 h-10 rounded-2xl flex items-center justify-center border-2 transition-all duration-300 shadow-md ${
-                    isCurrent
+                    isCompleted
+                      ? 'bg-emerald-500/20 border-emerald-400 text-emerald-400'
+                      : isCurrent
                       ? stage.color === 'emerald'
-                        ? 'bg-emerald-600 border-emerald-300 text-white ring-4 ring-emerald-500/20 scale-110'
+                        ? 'bg-emerald-500 border-emerald-300 text-slate-950 scale-110 shadow-emerald-500/30'
                         : stage.color === 'amber'
-                        ? 'bg-amber-600 border-amber-300 text-white ring-4 ring-amber-500/20 scale-110'
-                        : 'bg-teal-600 border-teal-300 text-white ring-4 ring-teal-500/20 scale-110'
-                      : isCompleted
-                      ? 'bg-slate-900 border-emerald-500 text-emerald-400'
-                      : 'bg-slate-950 border-slate-800 text-slate-600'
+                        ? 'bg-amber-500 border-amber-300 text-slate-950 scale-110 shadow-amber-500/30 animate-pulse'
+                        : 'bg-teal-500 border-teal-300 text-slate-950 scale-110 shadow-teal-500/30'
+                      : 'bg-slate-900 border-slate-700 text-slate-500'
                   }`}
                 >
                   {isCompleted ? (
-                    <Check className="w-5 h-5 stroke-[3] text-emerald-400" />
-                  ) : isCurrent && isUpdating ? (
-                    <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                    <Check className="w-5 h-5 stroke-[3]" />
                   ) : (
-                    <Icon className={`w-4 h-4 ${isCurrent ? 'animate-pulse' : ''}`} />
+                    <Icon className="w-5 h-5" />
                   )}
                 </div>
 
-                {/* Step Label & Subtitle */}
+                {/* Node Label & Details */}
                 <div className="mt-2 space-y-0.5">
-                  <div className="flex items-center justify-center gap-1">
-                    <span 
-                      className={`text-xs font-black transition-colors ${
-                        isCurrent 
-                          ? stage.color === 'emerald' ? 'text-emerald-300 font-extrabold' :
-                            stage.color === 'amber' ? 'text-amber-300 font-extrabold' : 'text-teal-300 font-extrabold'
-                          : isCompleted 
-                          ? 'text-slate-200' 
-                          : 'text-slate-500'
-                      }`}
-                    >
-                      {stage.title}
-                    </span>
-                    {isCurrent && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-current animate-ping"></span>
-                    )}
-                  </div>
-                  <p className="text-[9px] text-slate-400 font-medium hidden sm:block">
+                  <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded font-bold ${
+                    isCurrent 
+                      ? 'bg-slate-800 text-teal-300 border border-teal-500/30'
+                      : 'text-slate-500'
+                  }`}>
+                    {stage.badge}
+                  </span>
+                  <h5 className={`text-xs font-black leading-tight ${
+                    isCurrent ? 'text-white' : isCompleted ? 'text-emerald-300' : 'text-slate-400'
+                  }`}>
+                    {stage.title}
+                  </h5>
+                  <p className="text-[9.5px] text-slate-500 hidden sm:block">
                     {stage.subtitle}
                   </p>
                 </div>
@@ -246,37 +236,7 @@ export default function PrescriptionAuditProgressBar({
             );
           })}
         </div>
-      </div>
 
-      {/* FOOTER METRICS INFO BAR */}
-      <div className="bg-slate-900/60 rounded-xl px-3 py-2 border border-slate-850 flex flex-wrap items-center justify-between gap-2 text-[10px] text-slate-300">
-        <div className="flex items-center gap-2">
-          <span className="text-slate-400 font-bold">الحالة النشطة:</span>
-          <span 
-            className={`font-black px-2 py-0.5 rounded-md ${
-              normalizedStatus === 'Completed' ? 'bg-emerald-950 text-emerald-300 border border-emerald-800/60' :
-              normalizedStatus === 'Ongoing' ? 'bg-amber-950 text-amber-300 border border-amber-800/60 animate-pulse' :
-              'bg-teal-950 text-teal-300 border border-teal-800/60'
-            }`}
-          >
-            {normalizedStatus === 'Completed' ? '✅ تم إصدار التقرير النهائي (تقرير جاهز)' :
-             normalizedStatus === 'Ongoing' ? '⏳ الروشتة قيد الفحص السريري والتدقيق (قيد الفحص)' :
-             '📥 تم الاستلام وجاهزة لبدء التدقيق (تم الاستلام)'}
-          </span>
-        </div>
-
-        {reportId && normalizedStatus === 'Completed' && (
-          <div className="flex items-center gap-1 font-mono text-teal-300">
-            <FileText className="w-3 h-3 text-teal-400" />
-            <span>رقم التقرير: {reportId}</span>
-          </div>
-        )}
-
-        {patientName && (
-          <div className="text-slate-400">
-            المريض: <strong className="text-slate-200">{patientName}</strong>
-          </div>
-        )}
       </div>
 
     </div>

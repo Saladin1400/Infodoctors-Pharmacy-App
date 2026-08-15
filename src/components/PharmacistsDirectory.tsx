@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { PharmacistProfile, ApprovedSpecialtiesList, ApprovedSpecialty } from "../types";
 import { getDegreeLabelArabic, getDefaultCertificates } from "./PharmacistProfileModal";
+import { useLanguage } from "../LanguageContext";
 
 interface PharmacistsDirectoryProps {
   pharmacistsList?: PharmacistProfile[];
@@ -19,6 +20,7 @@ export const PharmacistsDirectory: React.FC<PharmacistsDirectoryProps> = ({
   onBookConsultation,
   compactMode = false
 }) => {
+  const { t, language, isRtl, dir } = useLanguage();
   const [pharmacists, setPharmacists] = useState<PharmacistProfile[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -74,7 +76,7 @@ export const PharmacistsDirectory: React.FC<PharmacistsDirectoryProps> = ({
   });
 
   return (
-    <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200/80 space-y-4 font-sans text-right" style={{ direction: "rtl" }}>
+    <div className={`bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200/80 space-y-4 font-sans ${isRtl ? 'text-right' : 'text-left'}`} style={{ direction: dir }}>
       
       {/* Component Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
@@ -84,13 +86,13 @@ export const PharmacistsDirectory: React.FC<PharmacistsDirectoryProps> = ({
           </div>
           <div>
             <h3 className="font-black text-sm text-slate-900 flex items-center gap-2">
-              <span>دليل الصيدلانيين الإكلينيكيين المعتمدين</span>
+              <span>{t('dir.title', 'دليل الصيدلانيين الإكلينيكيين المعتمدين')}</span>
               <span className="bg-teal-100 text-teal-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                {pharmacists.length} طبيب صيدلي
+                {pharmacists.length} {isRtl ? "طبيب صيدلي" : "Pharmacists"}
               </span>
             </h3>
             <p className="text-[11px] text-slate-500">
-              تصفح ملفات الصيدلانيين، افحص التراخيص والشهادات وتقييمات المرضى
+              {t('dir.subtitle', 'تصفح ملفات الصيدلانيين، افحص التراخيص والشهادات وتقييمات المرضى')}
             </p>
           </div>
         </div>
@@ -106,10 +108,10 @@ export const PharmacistsDirectory: React.FC<PharmacistsDirectoryProps> = ({
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="ابحث باسم الدكتور، رقم الترخيص النقابي، أو التخصص..."
-                className="w-full bg-white border border-slate-300 rounded-xl pr-9 pl-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-teal-500"
+                placeholder={t('dir.search_placeholder', 'ابحث باسم الدكتور، رقم الترخيص النقابي، أو التخصص...')}
+                className={`w-full bg-white border border-slate-300 rounded-xl ${isRtl ? 'pr-9 pl-3' : 'pl-9 pr-3'} py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-teal-500`}
               />
-              <Search className="w-4 h-4 text-slate-400 absolute top-2.5 right-3" />
+              <Search className={`w-4 h-4 text-slate-400 absolute top-2.5 ${isRtl ? 'right-3' : 'left-3'}`} />
             </div>
 
             {/* Specialty filter dropdown */}
@@ -118,9 +120,9 @@ export const PharmacistsDirectory: React.FC<PharmacistsDirectoryProps> = ({
               onChange={(e) => setSelectedSpecialty(e.target.value)}
               className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-teal-500 cursor-pointer"
             >
-              <option value="ALL">كافة التخصصات الطبية 🩺</option>
+              <option value="ALL">{isRtl ? "كافة التخصصات الطبية 🩺" : "All Medical Specialties 🩺"}</option>
               {ApprovedSpecialtiesList.map(s => (
-                <option key={s.key} value={s.key}>{s.ar}</option>
+                <option key={s.key} value={s.key}>{isRtl ? s.ar : s.key}</option>
               ))}
             </select>
 
@@ -130,12 +132,12 @@ export const PharmacistsDirectory: React.FC<PharmacistsDirectoryProps> = ({
               onChange={(e) => setSelectedDegree(e.target.value)}
               className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-teal-500 cursor-pointer"
             >
-              <option value="ALL">جميع الدرجات العلمية 🎓</option>
-              <option value="prime consultant">استشاري أول (Prime Consultant)</option>
-              <option value="consultant">استشاري (Consultant)</option>
-              <option value="Specialist">أخصائي (Specialist)</option>
-              <option value="Senior">صيدلي أول (Senior)</option>
-              <option value="junior">صيدلي مبتدئ (Junior)</option>
+              <option value="ALL">{isRtl ? "جميع الدرجات العلمية 🎓" : "All Academic Degrees 🎓"}</option>
+              <option value="prime consultant">{isRtl ? "استشاري أول (Prime Consultant)" : "Prime Consultant"}</option>
+              <option value="consultant">{isRtl ? "استشاري (Consultant)" : "Consultant"}</option>
+              <option value="Specialist">{isRtl ? "أخصائي (Specialist)" : "Specialist"}</option>
+              <option value="Senior">{isRtl ? "صيدلي أول (Senior)" : "Senior Clinical Pharmacist"}</option>
+              <option value="junior">{isRtl ? "صيدلي مبتدئ (Junior)" : "Junior Pharmacist"}</option>
             </select>
           </div>
         </div>
@@ -144,12 +146,12 @@ export const PharmacistsDirectory: React.FC<PharmacistsDirectoryProps> = ({
       {/* Grid of Pharmacist Profile Cards */}
       {isLoading ? (
         <div className="text-center py-8 text-slate-400 text-xs animate-pulse">
-          جاري تحميل دليل الصيدلانيين الإكلينيكيين...
+          {t('common.loading', 'جاري تحميل دليل الصيدلانيين الإكلينيكيين...')}
         </div>
       ) : filteredPharmacists.length === 0 ? (
         <div className="text-center py-8 text-slate-400 text-xs bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-2">
           <UserCheck className="w-8 h-8 mx-auto text-slate-300" />
-          <p className="font-bold">لا يوجد صيدلي يطابق معايير البحث الحالية.</p>
+          <p className="font-bold">{isRtl ? "لا يوجد صيدلي يطابق معايير البحث الحالية." : "No pharmacist matches the current search criteria."}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
@@ -185,7 +187,7 @@ export const PharmacistsDirectory: React.FC<PharmacistsDirectoryProps> = ({
                     </div>
                     <span className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-white ${
                       pharm.status === 'online' ? 'bg-emerald-500' : 'bg-slate-400'
-                    }`} title={pharm.status === 'online' ? 'متاح الآن' : 'غير متصل'} />
+                    }`} title={pharm.status === 'online' ? (isRtl ? 'متاح الآن' : 'Online') : (isRtl ? 'غير متصل' : 'Offline')} />
                   </div>
 
                   <div className="flex-1 space-y-1">
@@ -200,19 +202,19 @@ export const PharmacistsDirectory: React.FC<PharmacistsDirectoryProps> = ({
                     </div>
 
                     <p className="text-[11px] text-teal-700 font-bold">
-                      {getDegreeLabelArabic(pharm.degree)}
+                      {isRtl ? getDegreeLabelArabic(pharm.degree) : (pharm.degree || "Clinical Specialist")}
                     </p>
 
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10.5px] text-slate-500">
-                      <span>التخصص: <strong className="text-slate-800">{specAr}</strong></span>
-                      <span>الترخيص: <strong className="font-mono text-slate-700">{pharm.licenseNumber}</strong></span>
+                      <span>{isRtl ? "التخصص:" : "Specialty:"} <strong className="text-slate-800">{isRtl ? specAr : pharm.specialty}</strong></span>
+                      <span>{isRtl ? "الترخيص:" : "License:"} <strong className="font-mono text-slate-700">{pharm.licenseNumber}</strong></span>
                     </div>
                   </div>
                 </div>
 
                 {/* Certificates Badge Row */}
                 <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/70 text-[10.5px] text-slate-700 space-y-1">
-                  <span className="text-[9.5px] text-slate-400 font-bold block">الاعتمادات المهنية البارزة:</span>
+                  <span className="text-[9.5px] text-slate-400 font-bold block">{isRtl ? "الاعتمادات المهنية البارزة:" : "Key Professional Certifications:"}</span>
                   <div className="flex items-center gap-1.5 overflow-hidden text-ellipsis whitespace-nowrap">
                     <ShieldCheck className="w-3.5 h-3.5 text-teal-600 shrink-0" />
                     <span className="truncate font-bold">{certs[0]}</span>
@@ -226,7 +228,7 @@ export const PharmacistsDirectory: React.FC<PharmacistsDirectoryProps> = ({
                     className="flex-1 bg-slate-100 hover:bg-teal-50 text-slate-800 hover:text-teal-800 font-extrabold text-xs py-2 rounded-xl transition-all border border-slate-200/80 hover:border-teal-300 flex items-center justify-center gap-1 cursor-pointer"
                   >
                     <Eye className="w-3.5 h-3.5" />
-                    <span>الملف والتقييمات 📜</span>
+                    <span>{isRtl ? "الملف والتقييمات 📜" : "Profile & Reviews 📜"}</span>
                   </button>
 
                   {onBookConsultation && (
@@ -235,7 +237,7 @@ export const PharmacistsDirectory: React.FC<PharmacistsDirectoryProps> = ({
                       className="bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-xs px-3.5 py-2 rounded-xl transition-all shadow-xs flex items-center gap-1 cursor-pointer shrink-0"
                     >
                       <Calendar className="w-3.5 h-3.5" />
-                      <span>حجز 📅</span>
+                      <span>{isRtl ? "حجز 📅" : "Book 📅"}</span>
                     </button>
                   )}
                 </div>

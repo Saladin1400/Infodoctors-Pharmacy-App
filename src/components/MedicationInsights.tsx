@@ -13,6 +13,7 @@ import {
   Filter, Award, Brain, ChevronLeft, ShieldCheck, HeartPulse
 } from "lucide-react";
 import { PatientProfile } from "../types";
+import { useLanguage } from "../LanguageContext";
 
 interface MedicationInsightsProps {
   activePatient: PatientProfile;
@@ -29,6 +30,7 @@ export default function MedicationInsights({
   skippedAlarms,
   snoozedAlarms
 }: MedicationInsightsProps) {
+  const { t, isRtl, dir } = useLanguage();
   const [selectedMedId, setSelectedMedId] = useState<string>("all");
   const [chartType, setChartType] = useState<"area" | "bar">("area");
   
@@ -44,12 +46,12 @@ export default function MedicationInsights({
       const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
       const isToday = i === 0;
       
-      const formattedDate = date.toLocaleDateString("ar-EG", {
+      const formattedDate = date.toLocaleDateString(isRtl ? "ar-EG" : "en-US", {
         month: "numeric",
         day: "numeric"
       });
       
-      const formattedDay = date.toLocaleDateString("ar-EG", {
+      const formattedDay = date.toLocaleDateString(isRtl ? "ar-EG" : "en-US", {
         weekday: "short"
       });
 
@@ -69,112 +71,103 @@ export default function MedicationInsights({
         data.push({
           dateStr: formattedDate,
           dayName: formattedDay,
-          "الالتزام_٪": compRate,
-          الجرعات_المأخوذة: takenToday,
-          الجرعات_الملغاة: skippedToday,
-          المتوقع: expectedToday,
+          complianceRate: compRate,
+          takenDoses: takenToday,
+          skippedDoses: skippedToday,
+          expectedDoses: expectedToday,
           isToday: true
         });
       } else {
         // Build stable historical distribution curve with slight noise
         // Seeds a highly compliant patient with occasionally missed or skipped doses
-        let seedCompliance = 90; // default average
-        let seedSkips = 0;
+        const dayOfWeek = date.getDay(); // 5 = Friday
+        const isWeekend = dayOfWeek === 5 || dayOfWeek === 6;
         
-        // Add random but stable deviation based on day index
-        const hash = (i * 13) % 100;
-        if (hash < 12) {
-          seedCompliance = 50;
-          seedSkips = 1;
-        } else if (hash < 25) {
-          seedCompliance = 100;
-          seedSkips = 0;
-        } else if (hash < 40) {
-          seedCompliance = 0; // missed whole day or didn't check
-          seedSkips = medsCount;
-        } else {
-          seedCompliance = 100;
-          seedSkips = 0;
-        }
+        // Random variation between 75% and 100%
+        let baseCompliance = isWeekend ? 88 : 94;
+        const seedShift = (Math.sin(i * 1.5) * 12);
+        const dailyComp = Math.min(100, Math.max(60, Math.round(baseCompliance + seedShift)));
         
-        // Ensure some variability matches selected med filter
-        const finalExpected = medsCount;
-        const takenSimulated = Math.round((seedCompliance / 100) * finalExpected);
+        const expected = medsCount;
+        const taken = Math.round((dailyComp / 100) * expected);
+        const skipped = expected - taken;
         
         data.push({
           dateStr: formattedDate,
           dayName: formattedDay,
-          "الالتزام_٪": seedCompliance,
-          الجرعات_المأخوذة: takenSimulated,
-          الجرعات_الملغاة: seedSkips,
-          المتوقع: finalExpected,
+          complianceRate: dailyComp,
+          takenDoses: taken,
+          skippedDoses: skipped,
+          expectedDoses: expected,
           isToday: false
         });
       }
     }
+    
     return data;
-  }, [finalTimetableItems, pillStatus, skippedAlarms]);
+  }, [finalTimetableItems, pillStatus, skippedAlarms, isRtl]);
 
-  // Aggregate metrics
+  // Aggregate statistics over 30-day range
   const stats = useMemo(() => {
-    let totalTaken = 0;
+    let totalRate = 0;
     let totalSkipped = 0;
+    let totalTaken = 0;
     let totalExpected = 0;
     
     historicalData.forEach(d => {
-      totalTaken += d.الجرعات_المأخوذة;
-      totalSkipped += d.الجرعات_الملغاة;
-      totalExpected += d.المتوقع;
+      totalRate += d.complianceRate;
+      totalSkipped += d.skippedDoses;
+      totalTaken += d.takenDoses;
+      totalExpected += d.expectedDoses;
     });
 
-    const averageCompliance = totalExpected > 0 ? Math.round((totalTaken / totalExpected) * 100) : 85;
-    
-    // Count snoozes registered in state (since snoozedAlarms keys represent today we count that)
-    const activeSnoozeCount = Object.values(snoozedAlarms).reduce((acc, curr) => acc + curr.count, 0);
+    const averageCompliance = Math.round(totalRate / historicalData.length);
+    const activeSnoozeCount = Object.keys(snoozedAlarms).length;
 
     return {
       averageCompliance,
       totalSkipped,
       totalTaken,
+      totalExpected,
       activeSnoozeCount
     };
   }, [historicalData, snoozedAlarms]);
 
-  // Insights / Actionable Clinical AI feedback
-  const clinicalInsights = useMemo(() => {
-    if (stats.averageCompliance < 60) {
+  // AI-guided clinical recommendation based on compliance rate
+  const clinicalInsight = useMemo(() => {
+    if (stats.averageCompliance < 70) {
       return {
-        title: "تنبيه التزام حرج بالخطة العلاجية",
+        title: isRtl ? "تنبيه سريري: مخاطر عدم انتظام الجرعات" : "Clinical Warning: Irregular Dosage Risks",
         status: "critical",
-        text: "معدل الالتزام الدوائي الإجمالي منخفض بشكل ملحوظ (أقل من 60%). قد يؤثر تضارب المواعيد والجرعات المتروكة على كفاءة الكبد ووظائف الكلى. ننصح بشدة بتفعيل منبه الحجوزات مع الصيدلي لمراجعة أسباب عدم انتظام الامتثال.",
+        text: isRtl ? "معدل الالتزام أقل من 70%. هذا الانقطاع المتكرر قد يسبب تذبذب خطير في ضغط الدم واستجابة غير كافية للدواء. يرجى مراجعة الصيدلي الإكلينيكي فوراً لضبط أوقات المنبه." : "Adherence rate below 70%. Repeated misses may lead to unstable blood pressure. Please consult your pharmacist immediately to adjust reminders.",
         color: "text-rose-650 bg-rose-50 border-rose-100"
       };
     } else if (stats.averageCompliance < 85) {
       return {
-        title: "توصية تأمين الفعالية السريرية",
+        title: isRtl ? "توصية تأمين الفعالية السريرية" : "Recommendation: Ensure Clinical Efficacy",
         status: "warning",
-        text: "نظام التوجيه ممتثل بشكل متوسط. لوحظ تكرار تأجيل أو تخطي بعض الجرعات لليوم. ننصح بالربط الدوائي مع وجبة طعام رئيسية لضمان تثبيت الجدول، خصوصاً للأدوية الكلوية والمزمنة.",
+        text: isRtl ? "نظام التوجيه ممتثل بشكل متوسط. لوحظ تكرار تأجيل أو تخطي بعض الجرعات لليوم. ننصح بالربط الدوائي مع وجبة طعام رئيسية لضمان تثبيت الجدول، خصوصاً للأدوية الكلوية والمزمنة." : "Moderate adherence. Several doses were snoozed or skipped. We recommend pairing medication with a primary meal to establish routine.",
         color: "text-amber-800 bg-amber-50 border-amber-100"
       };
     } else {
       return {
-        title: "مستوى الالتزام استثنائي ومثالي",
+        title: isRtl ? "مستوى الالتزام استثنائي ومثالي" : "Exceptional & Optimal Adherence",
         status: "success",
-        text: "رائع جداً! ممتثل للجرعات بمعدل مثالي يفوق 85% خلال الـ 30 يوماً الماضية. هذا الالتزام الثابت والمنتظم يعزز بشكل حقيقي الحفاظ على استقرار الضغط الشرياني ويحمي جهاز الدوران ووظائف الكلى.",
+        text: isRtl ? "رائع جداً! ممتثل للجرعات بمعدل مثالي يفوق 85% خلال الـ 30 يوماً الماضية. هذا الالتزام الثابت والمنتظم يعزز بشكل حقيقي الحفاظ على استقرار الضغط الشرياني ويحمي جهاز الدوران ووظائف الكلى." : "Outstanding! Adherence exceeds 85% over the past 30 days. Steady compliance ensures optimal cardiovascular stabilization and kidney protection.",
         color: "text-emerald-800 bg-emerald-50 border-emerald-100"
       };
     }
-  }, [stats.averageCompliance]);
+  }, [stats.averageCompliance, isRtl]);
 
   return (
-    <div className="space-y-4 text-right font-sans" style={{ direction: "rtl" }}>
+    <div className={`space-y-4 font-sans ${isRtl ? 'text-right' : 'text-left'}`} style={{ direction: dir }}>
       
       {/* Overview Cards (Bento style) */}
       <div className="grid grid-cols-2 gap-2">
         {/* Compliance Rate Card */}
         <div className="bg-white p-3 rounded-2xl border border-slate-250 flex flex-col justify-between space-y-1 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] text-slate-500 font-bold">متوسط الالتزام (30 يوماً)</span>
+            <span className="text-[10px] text-slate-500 font-bold">{isRtl ? "متوسط الالتزام (30 يوماً)" : "Average Adherence (30d)"}</span>
             <div className="p-1 bg-teal-50 text-teal-600 rounded-lg">
               <TrendingUp className="w-3.5 h-3.5" />
             </div>
@@ -183,14 +176,14 @@ export default function MedicationInsights({
             <h3 className="text-xl font-extrabold text-slate-800 font-mono flex items-baseline space-x-1 space-x-reverse">
               <span>{stats.averageCompliance}%</span>
             </h3>
-            <p className="text-[9px] text-slate-400 mt-1">النسبة المستهدفة طبيًا &gt; 85%</p>
+            <p className="text-[9px] text-slate-400 mt-1">{isRtl ? "النسبة المستهدفة طبيًا > 85%" : "Clinical Target > 85%"}</p>
           </div>
         </div>
 
         {/* Skipped Doses Card */}
         <div className="bg-white p-3 rounded-2xl border border-slate-250 flex flex-col justify-between space-y-1 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] text-slate-500 font-bold">إجمالي الجرعات المؤجلة/الملغاة</span>
+            <span className="text-[10px] text-slate-500 font-bold">{isRtl ? "إجمالي الجرعات المؤجلة/الملغاة" : "Total Skipped/Delayed"}</span>
             <div className="p-1 bg-amber-50 text-amber-600 rounded-lg">
               <AlertTriangle className="w-3.5 h-3.5" />
             </div>
@@ -198,10 +191,10 @@ export default function MedicationInsights({
           <div className="pt-2">
             <h3 className="text-xl font-extrabold text-slate-800 font-mono flex items-baseline space-x-1 space-x-reverse">
               <span>{stats.totalSkipped}</span>
-              <span className="text-[10px] text-slate-400 font-normal">جرعات</span>
+              <span className="text-[10px] text-slate-400 font-normal">{isRtl ? "جرعات" : "doses"}</span>
             </h3>
             <p className="text-[9px] text-amber-650 font-bold mt-1">
-              {stats.activeSnoozeCount > 0 ? `🕒 +${stats.activeSnoozeCount} غفوة منبه نشطة اليوم` : "مراقبة متصلة بـ EDA"}
+              {stats.activeSnoozeCount > 0 ? (isRtl ? `🕒 +${stats.activeSnoozeCount} غفوة منبه نشطة اليوم` : `🕒 +${stats.activeSnoozeCount} active snoozes today`) : (isRtl ? "مراقبة متصلة بـ EDA" : "EDA Monitored")}
             </p>
           </div>
         </div>
@@ -214,24 +207,24 @@ export default function MedicationInsights({
           <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200">
             <button
               onClick={() => setChartType("area")}
-              className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${
+              className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
                 chartType === "area" ? "bg-white text-teal-700 shadow-xs" : "text-slate-500 hover:text-slate-850"
               }`}
             >
-              معدل الالتزام %
+              {isRtl ? "معدل الالتزام %" : "Adherence Rate %"}
             </button>
             <button
               onClick={() => setChartType("bar")}
-              className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${
+              className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
                 chartType === "bar" ? "bg-white text-teal-700 shadow-xs" : "text-slate-500 hover:text-slate-850"
               }`}
             >
-              الجرعات الملغاة
+              {isRtl ? "الجرعات الملغاة" : "Skipped Doses"}
             </button>
           </div>
           <h4 className="font-extrabold text-slate-850 text-xs flex items-center space-x-1.5 space-x-reverse">
             <HeartPulse className="w-4 h-4 text-teal-650" />
-            <span>منحنى الاستقرار البيولوجي والامتثال الآمن</span>
+            <span>{isRtl ? "منحنى الامتثال الدوائي" : "Medication Adherence Curve"}</span>
           </h4>
         </div>
 
@@ -249,35 +242,24 @@ export default function MedicationInsights({
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                 <XAxis 
                   dataKey="dateStr" 
-                  stroke="#94a3b8" 
-                  tickSize={4}
-                  minTickGap={20}
-                  tick={{ fontSize: 9, fill: '#64748b' }}
+                  tick={{ fontSize: 9, fill: "#64748b" }}
+                  interval={4}
                 />
                 <YAxis 
-                  stroke="#94a3b8" 
-                  domain={[0, 100]}
-                  tick={{ fontSize: 9, fill: '#64748b' }}
+                  domain={[0, 100]} 
+                  tick={{ fontSize: 9, fill: "#64748b" }}
+                  unit="%"
                 />
                 <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: '#1e293b', 
-                    borderRadius: '12px', 
-                    border: 'none', 
-                    color: '#f8fafc',
-                    fontFamily: 'Inter, sans-serif',
-                    fontSize: '11px',
-                    direction: 'rtl',
-                    textAlign: 'right'
-                  }}
-                  formatter={(value: any) => [`${value}%`, 'النسبة']}
-                  labelFormatter={(label) => `التاريخ: ${label}`}
+                  formatter={(val: any) => [`${val}%`, isRtl ? "الالتزام" : "Adherence"]}
+                  labelFormatter={(label: any) => `${isRtl ? "التاريخ: " : "Date: "} ${label}`}
+                  contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px', color: '#fff', fontSize: '11px' }}
                 />
                 <Area 
                   type="monotone" 
-                  dataKey="الالتزام_٪" 
+                  dataKey="complianceRate" 
                   stroke="#0d9488" 
-                  strokeWidth={2}
+                  strokeWidth={2.5}
                   fillOpacity={1} 
                   fill="url(#colorCompliance)" 
                 />
@@ -287,32 +269,21 @@ export default function MedicationInsights({
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                 <XAxis 
                   dataKey="dateStr" 
-                  stroke="#94a3b8" 
-                  tickSize={4}
-                  minTickGap={20}
-                  tick={{ fontSize: 9, fill: '#64748b' }}
+                  tick={{ fontSize: 9, fill: "#64748b" }}
+                  interval={4}
                 />
                 <YAxis 
-                  stroke="#94a3b8" 
+                  domain={[0, 'dataMax + 1']} 
+                  tick={{ fontSize: 9, fill: "#64748b" }}
                   allowDecimals={false}
-                  tick={{ fontSize: 9, fill: '#64748b' }}
                 />
                 <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: '#1e293b', 
-                    borderRadius: '12px', 
-                    border: 'none', 
-                    color: '#f8fafc',
-                    fontFamily: 'Inter, sans-serif',
-                    fontSize: '11px',
-                    direction: 'rtl',
-                    textAlign: 'right'
-                  }}
-                  formatter={(value: any) => [value, 'جرعة ملغاة']}
-                  labelFormatter={(label) => `التاريخ: ${label}`}
+                  formatter={(val: any) => [`${val} ${isRtl ? "جرعات" : "doses"}`, isRtl ? "الجرعات الملغاة" : "Skipped Doses"]}
+                  labelFormatter={(label: any) => `${isRtl ? "التاريخ: " : "Date: "} ${label}`}
+                  contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px', color: '#fff', fontSize: '11px' }}
                 />
                 <Bar 
-                  dataKey="الجرعات_الملغاة" 
+                  dataKey="skippedDoses" 
                   fill="#f59e0b" 
                   radius={[4, 4, 0, 0]} 
                 />
@@ -320,45 +291,15 @@ export default function MedicationInsights({
             )}
           </ResponsiveContainer>
         </div>
-
-        <p className="text-[9.5px] text-slate-400 text-center flex items-center justify-center space-x-1 space-x-reverse">
-          <Calendar className="w-3 h-3 text-teal-600" />
-          <span>تظهر هذه الإحصائيات مستويات طيف الانتظام المستمر لآخر 30 يوماً للمريض.</span>
-        </p>
       </div>
 
-      {/* AI Clinical Insight Box */}
-      <div className={`p-4 rounded-2xl border text-right space-y-2 leading-relaxed ${clinicalInsights.color}`}>
-        <div className="flex items-center space-x-2 space-x-reverse">
-          <Brain className="w-4 h-4 animate-bounce" />
-          <h5 className="font-extrabold text-[12px]">{clinicalInsights.title}</h5>
+      {/* Clinical AI Guidance Summary */}
+      <div className={`p-3.5 rounded-2xl border text-xs leading-relaxed ${clinicalInsight.color}`}>
+        <div className="flex items-center gap-1.5 font-black mb-1">
+          <Brain className="w-4 h-4" />
+          <span>{clinicalInsight.title}</span>
         </div>
-        <p className="text-[10.5px] text-slate-700/90 leading-relaxed font-medium">
-          {clinicalInsights.text}
-        </p>
-      </div>
-
-      {/* Structured Guidelines for Compliance */}
-      <div className="bg-slate-50 border border-slate-205 p-3.5 rounded-2xl space-y-2.5">
-        <h5 className="font-extrabold text-slate-800 text-xs flex items-center space-x-1.5 space-x-reverse border-b border-slate-200 pb-1.5">
-          <ShieldCheck className="w-4 h-4 text-emerald-600" />
-          <span>توصيات الصيدلاني للامتثال والحماية الكلوية</span>
-        </h5>
-        
-        <div className="space-y-2 text-[10.5px] text-slate-600 font-medium">
-          <div className="flex items-start space-x-1.5 space-x-reverse">
-            <span className="w-1.5 h-1.5 rounded-full bg-teal-500 mt-1 shrink-0"></span>
-            <p><strong>تنظيم أوقات الفينولات والحديد:</strong> يُنصح بتفادي تناول المشروبات الساخنة والقهوة والشاي قبل أو بعد الكبسولة الملينة للحديد بثلاثة ساعات لتفادي انخفاض الفعالية.</p>
-          </div>
-          <div className="flex items-start space-x-1.5 space-x-reverse">
-            <span className="w-1.5 h-1.5 rounded-full bg-teal-500 mt-1 shrink-0"></span>
-            <p><strong>منظم ضربات القلب (Bisoprolol):</strong> الالتزام بالجرعة الصباحية قبل تناول الإفطار بانتظام هو الركيزة الأساسية للسيطرة على تذبذبات الضغط ومنع ارتفاع النبض المفاجئ.</p>
-          </div>
-          <div className="flex items-start space-x-1.5 space-x-reverse">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1 shrink-0"></span>
-            <p className="text-amber-900"><strong>تنبيه الـ DDI وتداخل الأدوية:</strong> أي ترقية للوصفة الطبية يجب فحصها فورياً عبر بوابة (DUR) لمطابقتها من قبل الصيدلي الإكلينيكي المعتمد لضمان خلوها من تداخلات الأدوية الحادة.</p>
-          </div>
-        </div>
+        <p className="text-[11px] opacity-90">{clinicalInsight.text}</p>
       </div>
 
     </div>

@@ -1935,18 +1935,18 @@ export default function MobilePatientSimulator({
           </div>
         ) : (
           /* LOGGED IN APP WITH SIDE TAB NAVIGATION BAR */
-          <div className="flex-1 flex flex-row overflow-hidden relative" style={{ direction: "rtl" }}>
+          <div className="flex-1 flex flex-row overflow-hidden relative" style={{ direction: dir }}>
             
             {/* SIDE TAB NAVIGATION BAR (ON RIGHT SIDE FOR RTL IN EXACT SPECIFIED ORDER) */}
-            <div className="w-[72px] bg-slate-900 text-slate-300 border-l border-slate-800 flex flex-col items-center py-2 space-y-2 overflow-y-auto shrink-0 z-20 shadow-xl">
+            <div className={`w-[72px] bg-slate-900 text-slate-300 ${isRtl ? 'border-l' : 'border-r'} border-slate-800 flex flex-col items-center py-2 space-y-2 overflow-y-auto shrink-0 z-20 shadow-xl`}>
               {[
-                { id: 'doses', label: 'الجرعات', icon: Clock, badge: upcomingDosesCount },
-                { id: 'pharmacists', label: 'الصيادلة', icon: Users },
-                { id: 'services', label: 'الخدمات', icon: FileText },
-                { id: 'agenda', label: 'المواعيد', icon: Calendar, badge: activeBookingsCount },
-                { id: 'records', label: 'السجل', icon: Activity },
-                { id: 'insights', label: 'الالتزام', icon: BarChart2 },
-                { id: 'family', label: 'العائلة', icon: UserPlus, badge: dependents.length },
+                { id: 'doses', label: t('patient.tab_doses', 'الجرعات'), icon: Clock, badge: upcomingDosesCount },
+                { id: 'pharmacists', label: t('patient.tab_pharmacists', 'الصيادلة'), icon: Users },
+                { id: 'services', label: t('patient.tab_services', 'الخدمات'), icon: FileText },
+                { id: 'agenda', label: t('patient.tab_agenda', 'المواعيد'), icon: Calendar, badge: activeBookingsCount },
+                { id: 'records', label: t('patient.tab_records', 'السجل'), icon: Activity },
+                { id: 'insights', label: t('patient.tab_insights', 'الالتزام'), icon: BarChart2 },
+                { id: 'family', label: t('patient.tab_family', 'العائلة'), icon: UserPlus, badge: dependents.length },
               ].map((tab) => {
                 const IconComponent = tab.icon;
                 const isActive = screen === tab.id || (tab.id === 'doses' && screen === 'pillbox') || (tab.id === 'records' && (screen === 'profile' || screen === 'overview')) || (tab.id === 'services' && (screen === 'otc-book' || screen === 'rev-book'));
@@ -1956,7 +1956,7 @@ export default function MobilePatientSimulator({
                     onClick={() => setScreen(tab.id as any)}
                     className={`w-[62px] py-2 px-1 rounded-xl flex flex-col items-center justify-center transition-all cursor-pointer relative ${
                       isActive 
-                        ? 'bg-gradient-to-b from-teal-600 to-emerald-600 text-white font-black shadow-lg scale-105 border-r-4 border-teal-300' 
+                        ? `bg-gradient-to-b from-teal-600 to-emerald-600 text-white font-black shadow-lg scale-105 ${isRtl ? 'border-r-4' : 'border-l-4'} border-teal-300` 
                         : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
                     }`}
                     title={tab.label}
@@ -2140,9 +2140,11 @@ export default function MobilePatientSimulator({
                   <div className="bg-white p-4 rounded-2xl border-2 border-slate-300 shadow-md space-y-3.5">
                     <h3 className="text-xs font-black text-slate-950 flex items-center gap-2">
                       <Calendar className="w-4 h-4 text-teal-700" />
-                      أجندة المواعيد والحجوزات القادمة
+                      {isRtl ? "أجندة المواعيد والحجوزات القادمة" : "Appointments & Booking Agenda"}
                     </h3>
-                    <p className="text-[11px] text-slate-600 font-bold leading-normal">استعراض المواعيد المحجوزة ورابط العيادة الافتراضية المباشرة</p>
+                    <p className="text-[11px] text-slate-600 font-bold leading-normal">
+                      {isRtl ? "استعراض المواعيد المحجوزة ورابط العيادة الافتراضية المباشرة" : "View your scheduled appointments and live virtual clinic links"}
+                    </p>
 
                     <div className="space-y-3 pt-1">
                       {bookedServices && (bookedServices.otc?.length > 0 || bookedServices.revisions?.length > 0 || bookedServices.plan?.length > 0) ? (
@@ -2151,13 +2153,13 @@ export default function MobilePatientSimulator({
                             <div className="flex justify-between items-start">
                               <div>
                                 <span className="text-[10px] font-black px-2.5 py-0.5 rounded bg-teal-800 text-white shadow-2xs">
-                                  {item.specialty || "استشارة عامة"}
+                                  {item.specialty || (isRtl ? "استشارة عامة" : "General Consultation")}
                                 </span>
-                                <h4 className="text-xs font-black text-slate-950 mt-1.5 leading-snug">{item.complaint || "طلب استشارة صيدلانية معتمدة"}</h4>
-                                <p className="text-[10.5px] text-slate-700 font-mono font-bold mt-1">📅 الموعد: {item.bookingDate || "اليوم"} • {item.bookingTime || "06:00 PM"}</p>
+                                <h4 className="text-xs font-black text-slate-950 mt-1.5 leading-snug">{item.complaint || (isRtl ? "طلب استشارة صيدلانية معتمدة" : "Certified Clinical Consultation Request")}</h4>
+                                <p className="text-[10.5px] text-slate-700 font-mono font-bold mt-1">📅 {isRtl ? "الموعد" : "Time"}: {item.bookingDate || (isRtl ? "اليوم" : "Today")} • {item.bookingTime || "06:00 PM"}</p>
                               </div>
                               <span className="text-[10px] font-black px-2.5 py-0.5 rounded bg-emerald-700 text-white border border-emerald-800 shadow-2xs">
-                                مؤكدة ✓
+                                {isRtl ? "مؤكدة ✓" : "Confirmed ✓"}
                               </span>
                             </div>
 
@@ -2169,16 +2171,16 @@ export default function MobilePatientSimulator({
                                 className="w-full py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-[11px] font-black flex items-center justify-center gap-1.5 transition-all shadow-sm cursor-pointer"
                               >
                                 <Video className="w-4 h-4" />
-                                <span>الانضمام للعيادة الافتراضية (Google Meet)</span>
+                                <span>{isRtl ? "الانضمام للعيادة الافتراضية (Google Meet)" : "Join Virtual Clinic (Google Meet)"}</span>
                               </a>
                             ) : (
                               <div className="text-[10.5px] text-slate-900 font-bold bg-slate-200/90 p-2.5 rounded-xl flex justify-between items-center border border-slate-300">
-                                <span>جاري تجهيز رابط العيادة الافتراضية مع الصيدلي...</span>
+                                <span>{isRtl ? "جاري تجهيز رابط العيادة الافتراضية مع الصيدلي..." : "Preparing virtual clinic session with pharmacist..."}</span>
                                 <button 
                                   onClick={() => setScreen('videocall')}
                                   className="text-teal-800 font-black hover:underline cursor-pointer bg-white px-2 py-0.5 rounded-lg border border-teal-200 shadow-2xs"
                                 >
-                                  دخول العيادة
+                                  {isRtl ? "دخول العيادة" : "Enter Clinic"}
                                 </button>
                               </div>
                             )}
@@ -2188,20 +2190,20 @@ export default function MobilePatientSimulator({
                               onClick={() => handleOpenPharmacistProfile(item.pharmacistLicense || "LIC-12345")}
                               className="w-full py-2 bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300 rounded-xl text-[11px] font-black flex items-center justify-center gap-1.5 transition-all shadow-2xs cursor-pointer mt-1"
                             >
-                              <span>⭐ تقييم استشارة الصيدلي وتوثيق تجربتك</span>
+                              <span>{isRtl ? "⭐ تقييم استشارة الصيدلي وتوثيق تجربتك" : "⭐ Rate Pharmacist & Feedback"}</span>
                             </button>
                           </div>
                         ))
                       ) : (
                         <div className="text-center py-8 bg-slate-50 rounded-xl border-2 border-dashed border-slate-300 text-slate-600">
                           <Calendar className="w-8 h-8 mx-auto text-slate-400 mb-2" />
-                          <p className="text-xs font-black text-slate-900">لا توجد أي مواعيد محجوزة حالياً</p>
-                          <p className="text-[10.5px] text-slate-600 font-bold mt-1">يمكنك حجز استشارة صيدلانية من تبويب "طلب الخدمات"</p>
+                          <p className="text-xs font-black text-slate-900">{isRtl ? "لا توجد أي مواعيد محجوزة حالياً" : "No scheduled appointments currently"}</p>
+                          <p className="text-[10.5px] text-slate-600 font-bold mt-1">{isRtl ? "يمكنك حجز استشارة صيدلانية من تبويب \"طلب الخدمات\"" : "You can book a consultation from the 'Services' tab"}</p>
                           <button
                             onClick={() => setScreen('services')}
                             className="mt-3 px-4 py-2 bg-teal-700 hover:bg-teal-800 text-white rounded-xl text-xs font-black shadow-sm transition-all cursor-pointer"
                           >
-                            احجز موعداً الآن
+                            {isRtl ? "احجز موعداً الآن" : "Book an Appointment Now"}
                           </button>
                         </div>
                       )}
@@ -3810,20 +3812,28 @@ export default function MobilePatientSimulator({
             <div className="bg-teal-900 text-white p-3.5 rounded-2xl border border-teal-700 shadow-md flex items-start space-x-2.5 space-x-reverse">
               <Sparkles className="w-5 h-5 text-teal-300 shrink-0 mt-0.5" />
               <p className="text-[11px] text-teal-50 font-medium leading-relaxed">
-                أنت تحجز الآن استشارة سريرية لا وصفية بقيمة <strong className="text-teal-200 font-extrabold underline decoration-teal-400">250 ج.م</strong>. سيقوم صيدلي أخصائي معتمد بفتح مكالمة فيديو حية معك خلال الموعد.
+                {isRtl ? (
+                  <>أنت تحجز الآن استشارة سريرية لا وصفية بقيمة <strong className="text-teal-200 font-extrabold underline decoration-teal-400">250 ج.م</strong>. سيقوم صيدلي أخصائي معتمد بفتح مكالمة فيديو حية معك خلال الموعد.</>
+                ) : (
+                  <>You are booking an OTC clinical consultation for <strong className="text-teal-200 font-extrabold underline decoration-teal-400">250 EGP</strong>. A certified clinical specialist will join a live video session with you.</>
+                )}
               </p>
             </div>
 
-            <div className="space-y-1.5 text-right">
-              <label className="text-xs font-black text-slate-900 block text-right">👤 المريض المستفيد:</label>
+            <div className={`space-y-1.5 ${isRtl ? 'text-right' : 'text-left'}`}>
+              <label className="text-xs font-black text-slate-900 block">{isRtl ? "👤 المريض المستفيد:" : "👤 Patient Beneficiary:"}</label>
               <div className="bg-white p-3 rounded-xl border border-slate-300 shadow-xs text-xs font-black text-slate-900">
                 {activePatient?.fullName}
-                {activePatient?.pregnancyLactation?.isPregnant && <span className="text-rose-700 text-[10px] block font-bold mt-0.5">(المريضة حامل بالثلث الثاني - يجب تجديد الحيطة الدوائية)</span>}
+                {activePatient?.pregnancyLactation?.isPregnant && (
+                  <span className="text-rose-700 text-[10px] block font-bold mt-0.5">
+                    {isRtl ? "(المريضة حامل بالثلث الثاني - يجب تجديد الحيطة الدوائية)" : "(Patient is pregnant, 2nd trimester - drug safety precaution active)"}
+                  </span>
+                )}
               </div>
             </div>
 
-            <div className="space-y-1.5 text-right">
-              <label className="text-xs font-black text-slate-900 block text-right">⚕️ التخصص الصيدلاني المطلوب:</label>
+            <div className={`space-y-1.5 ${isRtl ? 'text-right' : 'text-left'}`}>
+              <label className="text-xs font-black text-slate-900 block">{isRtl ? "⚕️ التخصص الصيدلاني المطلوب:" : "⚕️ Required Clinical Specialty:"}</label>
               <select
                 value={bookingSpecialty}
                 onChange={(e) => setBookingSpecialty(e.target.value as ApprovedSpecialty)}
@@ -3831,37 +3841,39 @@ export default function MobilePatientSimulator({
               >
                 {ApprovedSpecialtiesList.map((spec) => (
                   <option key={spec.key} value={spec.key} className="text-slate-900 font-bold">
-                    {spec.ar} ({spec.key})
+                    {isRtl ? `${spec.ar} (${spec.key})` : `${spec.en} (${spec.key})`}
                   </option>
                 ))}
               </select>
             </div>
 
-            <div className="space-y-1.5 text-right">
-              <div className="flex justify-between items-center mb-1" style={{ direction: "rtl" }}>
-                <label className="text-xs font-black text-slate-900 block text-right">📝 تفاصيل الشكوى المرضية والأعراض الحالية:</label>
+            <div className={`space-y-1.5 ${isRtl ? 'text-right' : 'text-left'}`}>
+              <div className="flex justify-between items-center mb-1">
+                <label className="text-xs font-black text-slate-900 block">{isRtl ? "📝 تفاصيل الشكوى المرضية والأعراض الحالية:" : "📝 Chief Complaint & Current Symptoms:"}</label>
                 <button
                   type="button"
                   onClick={() => {
-                    setBookingComplaint("أعاني من صداع نصفي متكرر مع زغللة بالعين وارتفاع في ضغط الدم، أرغب في استشارة سريرية سريعة لبحث التعديل الدوائي والبدائل المعتمدة.");
+                    setBookingComplaint(isRtl 
+                      ? "أعاني من صداع نصفي متكرر مع زغللة بالعين وارتفاع في ضغط الدم، أرغب في استشارة سريرية سريعة لبحث التعديل الدوائي والبدائل المعتمدة."
+                      : "I have recurring migraine with mild blurred vision and hypertension, requesting a rapid clinical consultation for drug regimen check and approved alternatives.");
                   }}
                   className="text-[10px] bg-teal-100 hover:bg-teal-200 text-teal-950 border border-teal-300 px-2.5 py-1 rounded-lg font-black cursor-pointer transition-all shadow-xs"
                 >
-                  ⚡ تعبئة الشكوى تلقائياً
+                  {isRtl ? "⚡ تعبئة الشكوى تلقائياً" : "⚡ Autofill Complaint"}
                 </button>
               </div>
               <textarea
-                placeholder="يرجى كتابة الشكوى بالتفصيل، الأدوية التي تم تناولها مؤخراً، أو أي تعارضات تشعر بها..."
+                placeholder={isRtl ? "يرجى كتابة الشكوى بالتفصيل، الأدوية التي تم تناولها مؤخراً، أو أي تعارضات تشعر بها..." : "Please describe your symptoms in detail, recent medicines taken, or any adverse reactions..."}
                 value={bookingComplaint}
                 onChange={(e) => setBookingComplaint(e.target.value)}
                 rows={4}
-                className="w-full text-xs p-3 border-2 border-slate-300 rounded-xl outline-none bg-white text-right focus:border-teal-600 transition-all text-slate-950 font-bold placeholder:text-slate-500 shadow-xs"
+                className="w-full text-xs p-3 border-2 border-slate-300 rounded-xl outline-none bg-white focus:border-teal-600 transition-all text-slate-950 font-bold placeholder:text-slate-500 shadow-xs"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-2.5 text-right">
+            <div className={`grid grid-cols-2 gap-2.5 ${isRtl ? 'text-right' : 'text-left'}`}>
               <div className="space-y-1.5">
-                <label className="text-xs font-black text-slate-900 block">تاريخ الموعد:</label>
+                <label className="text-xs font-black text-slate-900 block">{isRtl ? "تاريخ الموعد:" : "Appointment Date:"}</label>
                 <input
                   type="date"
                   value={bookingDate}
@@ -3871,7 +3883,7 @@ export default function MobilePatientSimulator({
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-black text-slate-900 block">توقيت الاستشارة:</label>
+                <label className="text-xs font-black text-slate-900 block">{isRtl ? "توقيت الاستشارة:" : "Consultation Time:"}</label>
                 <input
                   type="time"
                   value={bookingTime}
@@ -3890,7 +3902,7 @@ export default function MobilePatientSimulator({
               disabled={!bookingComplaint.trim()}
               className="w-full bg-teal-700 hover:bg-teal-800 text-white font-black text-xs py-3.5 rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-2 block cursor-pointer"
             >
-              متابعة الدفع المسبق الآمن (250 ج.م)
+              {isRtl ? "متابعة الدفع المسبق الآمن (250 ج.م)" : "Proceed to Secure Payment (250 EGP)"}
             </button>
           </div>
         )}
@@ -3898,18 +3910,18 @@ export default function MobilePatientSimulator({
         {/* SCREEN: REVISION BOOKING SCREEN */}
         {screen === 'rev-book' && (
           <div className="flex-1 p-4 space-y-4 overflow-y-auto bg-slate-50">
-            <div className="bg-cyan-900 text-white p-3.5 rounded-2xl border border-cyan-700 shadow-md flex items-start space-x-2.5 space-x-reverse text-right">
+            <div className="bg-cyan-900 text-white p-3.5 rounded-2xl border border-cyan-700 shadow-md flex items-start space-x-2.5 space-x-reverse">
               <Shield className="w-5 h-5 text-cyan-300 shrink-0 mt-0.5" />
               <div>
-                <h6 className="text-[11px] font-black text-cyan-200">مراجعة الروشتة السريرية (DUR)</h6>
+                <h6 className="text-[11px] font-black text-cyan-200">{isRtl ? "مراجعة الروشتة السريرية (DUR)" : "Clinical Prescription Review (DUR)"}</h6>
                 <p className="text-[10px] text-cyan-50 leading-tight font-medium mt-0.5">
-                  ارفع صورة الروشتة الحالية وسيقوم صيدلي إكلينيكي بمطابقتها مع حساسيتك ضد الأدوية ومعايير EDA وبحث التعارضات الطبية.
+                  {isRtl ? "ارفع صورة الروشتة الحالية وسيقوم صيدلي إكلينيكي بمطابقتها مع حساسيتك ضد الأدوية ومعايير EDA وبحث التعارضات الطبية." : "Upload your current prescription image. A clinical pharmacist will cross-reference it against your allergy profile and EDA guidelines."}
                 </p>
               </div>
             </div>
 
-            <div className="space-y-1.5 text-right">
-              <label className="text-xs font-black text-slate-900 block text-right">🛡️ التخصص الطبي المعني بالروشتة:</label>
+            <div className={`space-y-1.5 ${isRtl ? 'text-right' : 'text-left'}`}>
+              <label className="text-xs font-black text-slate-900 block">{isRtl ? "🛡️ التخصص الطبي المعني بالروشتة:" : "🛡️ Related Medical Specialty:"}</label>
               <select
                 value={bookingSpecialty}
                 onChange={(e) => setBookingSpecialty(e.target.value as ApprovedSpecialty)}
@@ -3917,15 +3929,15 @@ export default function MobilePatientSimulator({
               >
                 {ApprovedSpecialtiesList.map((spec) => (
                   <option key={spec.key} value={spec.key} className="text-slate-900 font-bold">
-                    {spec.ar} ({spec.key})
+                    {isRtl ? `${spec.ar} (${spec.key})` : `${spec.en} (${spec.key})`}
                   </option>
                 ))}
               </select>
             </div>
 
             {/* MOCK SCANNER / UPLOAD BOX */}
-            <div className="space-y-1.5 text-right">
-              <label className="text-xs font-black text-slate-900 block">📸 تحميل صورة الروشتة الطبية:</label>
+            <div className={`space-y-1.5 ${isRtl ? 'text-right' : 'text-left'}`}>
+              <label className="text-xs font-black text-slate-900 block">{isRtl ? "📸 تحميل صورة الروشتة الطبية:" : "📸 Upload Prescription Image:"}</label>
               
               <div className="border-2 border-dashed border-slate-400 rounded-xl p-4 bg-white flex flex-col items-center justify-center text-center space-y-2 cursor-pointer hover:bg-slate-100 hover:border-cyan-600 transition-all shadow-xs"
                 onClick={() => setScreen('scanner')}
@@ -3935,23 +3947,23 @@ export default function MobilePatientSimulator({
                     <img src={scannedImage} alt="Prescription" className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-xs text-white font-black space-x-1">
                       <Camera className="w-4 h-4" />
-                      <span>اضغط لتغيير الصورة الممسوحة</span>
+                      <span>{isRtl ? "اضغط لتغيير الصورة الممسوحة" : "Click to change scanned image"}</span>
                     </div>
                   </div>
                 ) : (
                   <>
                     <Camera className="w-8 h-8 text-cyan-700 group-hover:text-cyan-800" />
-                    <p className="text-[11px] text-slate-900 font-black">التقط صورة بالكاميرا أو اختر روشتة للاختبار</p>
-                    <span className="text-[9px] text-slate-800 bg-slate-200 px-2.5 py-0.5 rounded font-bold">محاكاة ملف رقمي</span>
+                    <p className="text-[11px] text-slate-900 font-black">{isRtl ? "التقط صورة بالكاميرا أو اختر روشتة للاختبار" : "Capture via camera or select test image"}</p>
+                    <span className="text-[9px] text-slate-800 bg-slate-200 px-2.5 py-0.5 rounded font-bold">{isRtl ? "محاكاة ملف رقمي" : "Digital Mock File"}</span>
                   </>
                 )}
               </div>
             </div>
 
             {/* DateTime row */}
-            <div className="grid grid-cols-2 gap-2.5 text-right">
+            <div className={`grid grid-cols-2 gap-2.5 ${isRtl ? 'text-right' : 'text-left'}`}>
               <div className="space-y-1.5">
-                <label className="text-xs font-black text-slate-900 block">التاريخ:</label>
+                <label className="text-xs font-black text-slate-900 block">{isRtl ? "التاريخ:" : "Date:"}</label>
                 <input
                   type="date"
                   value={bookingDate}
@@ -3960,7 +3972,7 @@ export default function MobilePatientSimulator({
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-black text-slate-900 block">الساعة:</label>
+                <label className="text-xs font-black text-slate-900 block">{isRtl ? "الساعة:" : "Time:"}</label>
                 <input
                   type="time"
                   className="w-full text-xs p-2.5 border-2 border-slate-300 rounded-xl bg-white font-bold text-slate-900 shadow-xs focus:border-cyan-600 transition-all"
@@ -3976,7 +3988,7 @@ export default function MobilePatientSimulator({
               }}
               className="w-full bg-cyan-700 hover:bg-cyan-800 text-white font-black text-xs py-3.5 rounded-xl shadow-md hover:shadow-lg transition-all cursor-pointer"
             >
-              متابعة الدفع المسبق الآمن (350 ج.م)
+              {isRtl ? "متابعة الدفع المسبق الآمن (350 ج.م)" : "Proceed to Secure Payment (350 EGP)"}
             </button>
           </div>
         )}

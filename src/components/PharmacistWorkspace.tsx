@@ -1558,14 +1558,16 @@ export default function PharmacistWorkspace({
          <div className="w-16 md:w-52 bg-slate-950 rounded-2xl p-2.5 border border-slate-800 flex flex-col justify-between space-y-2 shrink-0">
            <div className="space-y-2">
              <div className="px-2 py-1.5 hidden md:block border-b border-slate-900 mb-1">
-               <span className="text-[10px] text-teal-400 font-black uppercase tracking-wider block">قائمة التصفح</span>
+               <span className="text-[10px] text-teal-400 font-black uppercase tracking-wider block">
+                 {t('pharmacist.tab_nav', 'قائمة التصفح')}
+               </span>
              </div>
 
              {/* 1. الحالات */}
              <button
                type="button"
                onClick={() => setSidebarNav('cases')}
-               className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl font-extrabold text-xs transition-all ${
+               className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl font-extrabold text-xs transition-all cursor-pointer ${
                  sidebarNav === 'cases'
                    ? 'bg-teal-600 text-white shadow-md shadow-teal-950/40'
                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
@@ -1573,7 +1575,7 @@ export default function PharmacistWorkspace({
              >
                <div className="flex items-center space-x-2 space-x-reverse">
                  <Users className="w-4 h-4 shrink-0 text-teal-300" />
-                 <span className="hidden md:inline">الحالات</span>
+                 <span className="hidden md:inline">{t('pharmacist.tab_cases', 'الحالات')}</span>
                </div>
                {pendingCount > 0 && (
                  <span className="hidden md:inline-block text-[9.5px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/30 font-bold">
@@ -1586,42 +1588,42 @@ export default function PharmacistWorkspace({
              <button
                type="button"
                onClick={() => setSidebarNav('performance')}
-               className={`w-full flex items-center space-x-2 space-x-reverse px-3 py-2.5 rounded-xl font-extrabold text-xs transition-all ${
+               className={`w-full flex items-center space-x-2 space-x-reverse px-3 py-2.5 rounded-xl font-extrabold text-xs transition-all cursor-pointer ${
                  sidebarNav === 'performance'
                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950/40'
                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
                }`}
              >
                <Gauge className="w-4 h-4 shrink-0 text-emerald-300" />
-               <span className="hidden md:inline">لوحة الأداء والإنتاجية</span>
+               <span className="hidden md:inline">{t('pharmacist.tab_performance', 'لوحة الأداء والإنتاجية')}</span>
              </button>
 
              {/* 3. الملف المهني */}
              <button
                type="button"
                onClick={() => setSidebarNav('profile')}
-               className={`w-full flex items-center space-x-2 space-x-reverse px-3 py-2.5 rounded-xl font-extrabold text-xs transition-all ${
+               className={`w-full flex items-center space-x-2 space-x-reverse px-3 py-2.5 rounded-xl font-extrabold text-xs transition-all cursor-pointer ${
                  sidebarNav === 'profile'
                    ? 'bg-teal-600 text-white shadow-md shadow-teal-950/40'
                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
                }`}
              >
                <UserCheck className="w-4 h-4 shrink-0 text-teal-300" />
-               <span className="hidden md:inline">الملف المهني</span>
+               <span className="hidden md:inline">{t('pharmacist.tab_profile', 'الملف المهني')}</span>
              </button>
 
              {/* 4. العمولات والأرباح */}
              <button
                type="button"
                onClick={() => setSidebarNav('finance')}
-               className={`w-full flex items-center space-x-2 space-x-reverse px-3 py-2.5 rounded-xl font-extrabold text-xs transition-all ${
+               className={`w-full flex items-center space-x-2 space-x-reverse px-3 py-2.5 rounded-xl font-extrabold text-xs transition-all cursor-pointer ${
                  sidebarNav === 'finance'
                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-950/40'
                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
                }`}
              >
                <DollarSign className="w-4 h-4 shrink-0 text-indigo-300" />
-               <span className="hidden md:inline">العمولات والأرباح</span>
+               <span className="hidden md:inline">{t('pharmacist.tab_finance', 'العمولات والأرباح')}</span>
              </button>
            </div>
          </div>

@@ -157,26 +157,26 @@ export type ApprovedSpecialty =
   | 'Nutrition & Obesity'
   | 'Sexual Health';
 
-export const ApprovedSpecialtiesList: { key: ApprovedSpecialty; ar: string }[] = [
-  { key: 'OB-GYN', ar: 'نساء وتوليد' },
-  { key: 'Pediatrics', ar: 'أطفال' },
-  { key: 'GI', ar: 'جهاز هضمي' },
-  { key: 'Cardiovascular', ar: 'قلب وأوعية دموية' },
-  { key: 'Diabetes & Endocrine', ar: 'سكر وغدد صماء' },
-  { key: 'Nephrology', ar: 'كلى' },
-  { key: 'Urology', ar: 'مسالك بولية' },
-  { key: 'Chest & Allergy', ar: 'صدر وحساسية' },
-  { key: 'ENT', ar: 'أنف وأذن وحنجرة' },
-  { key: 'Ophthalmology', ar: 'عيون' },
-  { key: 'General Surgery', ar: 'جراحة عامة' },
-  { key: 'Orthopedics', ar: 'عظام' },
-  { key: 'Neurology', ar: 'مخ وأعصاب' },
-  { key: 'Psychiatry', ar: 'نفسية وعصبية' },
-  { key: 'Hematology & Immunology', ar: 'دم ومناعة' },
-  { key: 'Oncology', ar: 'أورام' },
-  { key: 'Dermatology & Cosmetics', ar: 'جلدية وتجميل' },
-  { key: 'Nutrition & Obesity', ar: 'تغذية وسمنة ونحافة' },
-  { key: 'Sexual Health', ar: 'صحة جنسية' },
+export const ApprovedSpecialtiesList: { key: ApprovedSpecialty; ar: string; en: string }[] = [
+  { key: 'OB-GYN', ar: 'نساء وتوليد', en: 'OB-GYN' },
+  { key: 'Pediatrics', ar: 'أطفال', en: 'Pediatrics' },
+  { key: 'GI', ar: 'جهاز هضمي', en: 'Gastroenterology' },
+  { key: 'Cardiovascular', ar: 'قلب وأوعية دموية', en: 'Cardiovascular' },
+  { key: 'Diabetes & Endocrine', ar: 'سكر وغدد صماء', en: 'Diabetes & Endocrinology' },
+  { key: 'Nephrology', ar: 'كلى', en: 'Nephrology' },
+  { key: 'Urology', ar: 'مسالك بولية', en: 'Urology' },
+  { key: 'Chest & Allergy', ar: 'صدر وحساسية', en: 'Pulmonology & Allergy' },
+  { key: 'ENT', ar: 'أنف وأذن وحنجرة', en: 'ENT' },
+  { key: 'Ophthalmology', ar: 'عيون', en: 'Ophthalmology' },
+  { key: 'General Surgery', ar: 'جراحة عامة', en: 'General Surgery' },
+  { key: 'Orthopedics', ar: 'عظام', en: 'Orthopedics' },
+  { key: 'Neurology', ar: 'مخ وأعصاب', en: 'Neurology' },
+  { key: 'Psychiatry', ar: 'نفسية وعصبية', en: 'Psychiatry' },
+  { key: 'Hematology & Immunology', ar: 'دم ومناعة', en: 'Hematology & Immunology' },
+  { key: 'Oncology', ar: 'أورام', en: 'Oncology' },
+  { key: 'Dermatology & Cosmetics', ar: 'جلدية وتجميل', en: 'Dermatology & Cosmetics' },
+  { key: 'Nutrition & Obesity', ar: 'تغذية وسمنة ونحافة', en: 'Nutrition & Weight Management' },
+  { key: 'Sexual Health', ar: 'صحة جنسية', en: 'Sexual Health' },
 ];
 
 // Consultation Model (طلب استشارة)

@@ -458,36 +458,36 @@ export default function AdminPanel() {
   const adminSharePeriod = totalPeriodRevenue * 0.4;
 
   return (
-    <div className="bg-slate-50 rounded-3xl p-6 shadow-xl border border-slate-200 flex flex-col min-h-[850px] lg:max-h-[88vh] overflow-y-auto" style={{ direction: "rtl" }}>
+    <div className="bg-slate-50 rounded-3xl p-6 shadow-xl border border-slate-200 flex flex-col min-h-[850px] lg:max-h-[88vh] overflow-y-auto" style={{ direction: dir }}>
       
       {/* Upper Brand Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-200 pb-5 mb-5 gap-4">
-        <div className="flex items-center space-x-3.5 space-x-reverse text-right">
+        <div className={`flex items-center space-x-3.5 space-x-reverse ${isRtl ? 'text-right' : 'text-left'}`}>
           <div className="p-3 bg-indigo-600 text-white rounded-2xl shadow-indigo-100 shadow-lg">
             <BarChart3 className="w-6 h-6" />
           </div>
           <div>
             <div className="flex items-center space-x-2 space-x-reverse">
               <span className="bg-indigo-100 text-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-indigo-200">
-                منظومة الإشراف والتحكم
+                {t('admin.badge_supervision', 'منظومة الإشراف والتحكم')}
               </span>
               <span className="bg-teal-100 text-teal-800 text-[10px] font-bold px-2 py-0.5 rounded-full border border-teal-200 animate-pulse">
-                ● النظام متصل بالوزارة
+                {t('admin.badge_connected', '● النظام متصل بالوزارة')}
               </span>
             </div>
-            <h1 className="text-xl font-black text-slate-800 tracking-tight mt-1">لوحة الإدارة</h1>
-            <p className="text-xs text-slate-500 mt-0.5">مراقبة إنتاجية الصيادلة، تقارير الحالات والعائدات، وحكامة الحسابات والجودة</p>
+            <h1 className="text-xl font-black text-slate-800 tracking-tight mt-1">{t('admin.title', 'لوحة الإدارة')}</h1>
+            <p className="text-xs text-slate-500 mt-0.5">{t('admin.subtitle', 'مراقبة إنتاجية الصيادلة، تقارير الحالات والعائدات، وحكامة الحسابات والجودة')}</p>
           </div>
         </div>
 
         <div className="flex items-center space-x-2 space-x-reverse self-end md:self-auto">
           <button 
             onClick={handleRefreshAll}
-            className="p-2.5 bg-white text-slate-600 hover:text-indigo-600 hover:bg-slate-50 border border-slate-200 rounded-xl transition-all shadow-sm flex items-center space-x-2 space-x-reverse"
-            title="تحديث البيانات"
+            className="p-2.5 bg-white text-slate-600 hover:text-indigo-600 hover:bg-slate-50 border border-slate-200 rounded-xl transition-all shadow-sm flex items-center space-x-2 space-x-reverse cursor-pointer"
+            title={t('common.refresh', 'تحديث البيانات')}
           >
             <RefreshCw className={`w-4 h-4 ${isLoading || isLoadingFinance || isLoadingPharmacists ? "animate-spin" : ""}`} />
-            <span className="text-xs font-bold">تحديث البيانات</span>
+            <span className="text-xs font-bold">{t('common.refresh', 'تحديث البيانات')}</span>
           </button>
         </div>
       </div>
@@ -507,7 +507,7 @@ export default function AdminPanel() {
           }`}
         >
           <Users className="w-4.5 h-4.5" />
-          <span>إدارة الحسابات</span>
+          <span>{t('admin.tab_users', 'إدارة الحسابات')}</span>
         </button>
 
         <button
@@ -520,7 +520,7 @@ export default function AdminPanel() {
           }`}
         >
           <FileText className="w-4.5 h-4.5" />
-          <span>تقارير الحالات</span>
+          <span>{t('admin.tab_cases', 'تقارير الحالات')}</span>
         </button>
 
         <button
@@ -536,7 +536,7 @@ export default function AdminPanel() {
           }`}
         >
           <TrendingUp className="w-4.5 h-4.5" />
-          <span>تقارير العائدات والأرباح</span>
+          <span>{t('admin.tab_revenue', 'تقارير العائدات والأرباح')}</span>
         </button>
 
         <button
@@ -552,7 +552,7 @@ export default function AdminPanel() {
           }`}
         >
           <Award className="w-4.5 h-4.5" />
-          <span>تقارير أداء الصيادلة</span>
+          <span>{t('admin.tab_pharmacists', 'تقارير أداء الصيادلة')}</span>
         </button>
 
         <button
@@ -565,7 +565,7 @@ export default function AdminPanel() {
           }`}
         >
           <ShieldCheck className="w-4.5 h-4.5" />
-          <span>تقارير الجودة</span>
+          <span>{t('admin.tab_quality', 'تقارير الجودة')}</span>
         </button>
       </div>
 

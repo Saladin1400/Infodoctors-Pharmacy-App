@@ -303,19 +303,19 @@ export default function App() {
         
         {/* GATEWAY LANDING VIEW */}
         {activePortal === 'gateway' && (
-          <div className="space-y-8 max-w-5xl mx-auto py-6" style={{ direction: "rtl" }}>
+          <div className="space-y-8 max-w-5xl mx-auto py-6" style={{ direction: dir }}>
             
             {/* Gateway Hero Banner */}
             <div className="text-center space-y-3 bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
               <div className="inline-flex items-center space-x-2 space-x-reverse bg-teal-50 text-teal-800 px-3 py-1 rounded-full text-xs font-black border border-teal-200/60">
                 <Sparkles className="w-3.5 h-3.5 text-teal-600" />
-                <span>اختر البوابة للبدء مباشرة</span>
+                <span>{t('portal.choose_to_start', 'اختر البوابة للبدء مباشرة')}</span>
               </div>
               <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
-                أهلاً بك في منصة الرعاية الصحية
+                {t('portal.welcome_title', 'أهلاً بك في منصة الرعاية الصحية')}
               </h2>
               <p className="text-xs md:text-sm text-slate-500 max-w-2xl mx-auto leading-relaxed">
-                تطبيق متكامل يتيح للمرضى حجز الاستشارات ورفع الملفات، ويمنح الصيادلة أدوات التدقيق الدوائي بالذكاء الاصطناعي (DUR) وإصدار التقارير المعتمدة، مع لوحة إدارة مركزية.
+                {t('portal.welcome_subtitle', 'تطبيق متكامل يتيح للمرضى حجز الاستشارات ورفع الملفات، ويمنح الصيادلة أدوات التدقيق الدوائي بالذكاء الاصطناعي (DUR) وإصدار التقارير المعتمدة، مع لوحة إدارة مركزية.')}
               </p>
             </div>
 
@@ -329,11 +329,15 @@ export default function App() {
                     <Phone className="w-6 h-6" />
                   </div>
                   <div>
-                    <span className="text-[10px] bg-teal-50 text-teal-800 border border-teal-200 px-2 py-0.5 rounded font-bold">بوابة الجمهور</span>
-                    <h3 className="text-lg font-black text-slate-900 mt-1 text-center">تطبيق المستخدم</h3>
+                    <span className="text-[10px] bg-teal-50 text-teal-800 border border-teal-200 px-2 py-0.5 rounded font-bold">
+                      {t('portal.patient_desc', 'بوابة الجمهور')}
+                    </span>
+                    <h3 className="text-lg font-black text-slate-900 mt-1 text-center">
+                      {t('portal.patient', 'تطبيق المستخدم')}
+                    </h3>
                   </div>
                   <p className="text-xs text-slate-500 leading-relaxed">
-                    من خلال هذه البوابة يمكن للمريض تسجيل حساب جديد، إضافة المرافقين، حجز استشارات OTC، تتبع منبهات الأدوية، واستلام التقارير الطبية المعتمدة.
+                    {t('portal.patient_card_desc', 'من خلال هذه البوابة يمكن للمريض تسجيل حساب جديد، إضافة المرافقين، حجز استشارات OTC، تتبع منبهات الأدوية، واستلام التقارير الطبية المعتمدة.')}
                   </p>
                 </div>
 
@@ -342,18 +346,18 @@ export default function App() {
                     onClick={() => setActivePortal('patient')}
                     className="w-full bg-teal-600 hover:bg-teal-700 text-white font-extrabold py-3 px-4 rounded-2xl text-xs transition-all flex items-center justify-center space-x-2 space-x-reverse shadow-md shadow-teal-600/15 cursor-pointer focus:outline-none"
                   >
-                    <span>الدخول لبوابة المستخدم</span>
-                    <ChevronRight className="w-4 h-4 rotate-180" />
+                    <span>{t('portal.enter_patient', 'الدخول لبوابة المستخدم')}</span>
+                    <ChevronRight className={`w-4 h-4 ${isRtl ? 'rotate-180' : ''}`} />
                   </button>
 
                   {patientUser && (
                     <div className="text-[10.5px] text-teal-700 font-bold bg-teal-50 p-2 rounded-xl border border-teal-100 flex items-center justify-between px-3">
-                      <span>جلسة نشطة: {patientUser.fullName || patientUser.email}</span>
+                      <span>{t('portal.active_session', 'جلسة نشطة')}: {patientUser.fullName || patientUser.email}</span>
                       <button 
                         onClick={handlePatientLogout}
                         className="text-rose-600 hover:text-rose-700 font-bold hover:underline cursor-pointer text-[10px]"
                       >
-                        تسجيل الخروج ✕
+                        {t('nav.logout', 'تسجيل الخروج ✕')}
                       </button>
                     </div>
                   )}
@@ -368,11 +372,15 @@ export default function App() {
                       <Users className="w-6 h-6" />
                     </div>
                     <div>
-                      <span className="text-[10px] bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded font-bold">مختصي الصيدلة الإكلينيكية</span>
-                      <h3 className="text-lg font-black text-slate-900 mt-1 text-center">مكتب الدكتور الصيدلي</h3>
+                      <span className="text-[10px] bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded font-bold">
+                        {t('portal.pharmacist_desc', 'مختصي الصيدلة الإكلينيكية')}
+                      </span>
+                      <h3 className="text-lg font-black text-slate-900 mt-1 text-center">
+                        {t('portal.pharmacist', 'مكتب الدكتور الصيدلي')}
+                      </h3>
                     </div>
                     <p className="text-xs text-slate-500 leading-relaxed">
-                      مساحة عمل الصيدلي لفحص الروشتات وطابور الاستشارات المباشرة، إجراء الفحص الآلي للتعارضات الدوائية والحساسية بالذكاء الاصطناعي، وتوثيق التقارير.
+                      {t('portal.pharmacist_card_desc', 'مساحة عمل الصيدلي لفحص الروشتات وطابور الاستشارات المباشرة، إجراء الفحص الآلي للتعارضات الدوائية والحساسية بالذكاء الاصطناعي، وتوثيق التقارير.')}
                     </p>
                   </div>
 
@@ -381,18 +389,18 @@ export default function App() {
                       onClick={() => setActivePortal('pharmacist')}
                       className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold py-3 px-4 rounded-2xl text-xs transition-all flex items-center justify-center space-x-2 space-x-reverse shadow-md shadow-emerald-600/15 cursor-pointer focus:outline-none"
                     >
-                      <span>الدخول إلى المكتب</span>
-                      <ChevronRight className="w-4 h-4 rotate-180" />
+                      <span>{t('portal.enter_pharmacist', 'الدخول إلى المكتب')}</span>
+                      <ChevronRight className={`w-4 h-4 ${isRtl ? 'rotate-180' : ''}`} />
                     </button>
 
                     {pharmacistUser && (
                       <div className="text-[10.5px] text-emerald-700 font-bold bg-emerald-50 p-2 rounded-xl border border-emerald-100 flex items-center justify-between px-3">
-                        <span>جلسة نشطة: د. {pharmacistUser.fullName || pharmacistUser.email}</span>
+                        <span>{t('portal.active_session', 'جلسة نشطة')}: د. {pharmacistUser.fullName || pharmacistUser.email}</span>
                         <button 
                           onClick={handlePharmacistLogout}
                           className="text-rose-600 hover:text-rose-700 font-bold hover:underline cursor-pointer text-[10px]"
                         >
-                          تسجيل الخروج ✕
+                          {t('nav.logout', 'تسجيل الخروج ✕')}
                         </button>
                       </div>
                     )}
@@ -445,7 +453,7 @@ export default function App() {
 
       {/* ADMIN PASSCODE AUTHENTICATION MODAL */}
       {showAdminPinModal && (
-        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center z-[2500] p-4 text-right" style={{ direction: "rtl" }}>
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center z-[2500] p-4 text-right" style={{ direction: dir }}>
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-sm shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200">
             
             {/* Modal Header */}
@@ -454,12 +462,12 @@ export default function App() {
                 <Lock className="w-5 h-5" />
               </div>
               <div className="flex-grow">
-                <h3 className="text-sm font-extrabold text-white">التحقق من صلاحية الإدارة</h3>
-                <p className="text-[10px] text-slate-400">صفحة الأدمن مخصصة للمالك ومشرفي المنصة فقط</p>
+                <h3 className="text-sm font-extrabold text-white">{t('auth.admin_title', 'التحقق من صلاحية الإدارة')}</h3>
+                <p className="text-[10px] text-slate-400">{t('auth.admin_subtitle', 'صفحة الأدمن مخصصة للمالك ومشرفي المنصة فقط')}</p>
               </div>
               <button 
                 onClick={() => { setShowAdminPinModal(false); setAdminPinError(null); }}
-                className="text-slate-400 hover:text-white text-xs font-bold bg-slate-800 w-6 h-6 rounded-lg flex items-center justify-center focus:outline-none"
+                className="text-slate-400 hover:text-white text-xs font-bold bg-slate-800 w-6 h-6 rounded-lg flex items-center justify-center focus:outline-none cursor-pointer"
               >
                 ✕
               </button>
@@ -468,7 +476,7 @@ export default function App() {
             {/* Modal Form */}
             <form onSubmit={handleAdminAuthSubmit} className="space-y-4">
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-300 block">رمز أمان الأدمن (Admin Passcode):</label>
+                <label className="text-xs font-bold text-slate-300 block">{t('auth.pin_label', 'رمز أمان الأدمن (Admin Passcode):')}</label>
                 <div className="relative">
                   <input
                     type="password"
@@ -476,7 +484,7 @@ export default function App() {
                     required
                     value={adminPinInput}
                     onChange={(e) => setAdminPinInput(e.target.value)}
-                    placeholder="أدخل رمز الدخول (الرمز الافتراضي: 1234)"
+                    placeholder={t('auth.pin_placeholder', 'أدخل رمز الدخول (الرمز الافتراضي: 1234)')}
                     className="w-full bg-slate-950 border border-slate-800 text-white p-2.5 rounded-xl text-xs font-mono outline-none focus:border-indigo-500 focus:bg-slate-950 text-right"
                   />
                   <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
@@ -493,16 +501,16 @@ export default function App() {
               <div className="flex space-x-2 space-x-reverse pt-2">
                 <button
                   type="submit"
-                  className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold py-2.5 rounded-xl text-xs transition-all shadow-md focus:outline-none"
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold py-2.5 rounded-xl text-xs transition-all shadow-md focus:outline-none cursor-pointer"
                 >
-                  تأكيد ودخول الأدمن ➔
+                  {t('auth.pin_submit', 'تأكيد ودخول الأدمن ➔')}
                 </button>
                 <button
                   type="button"
                   onClick={() => { setShowAdminPinModal(false); setAdminPinError(null); }}
-                  className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-3 py-2.5 rounded-xl text-xs transition-all focus:outline-none"
+                  className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-3 py-2.5 rounded-xl text-xs transition-all focus:outline-none cursor-pointer"
                 >
-                  إلغاء
+                  {t('auth.cancel', 'إلغاء')}
                 </button>
               </div>
             </form>
@@ -515,7 +523,7 @@ export default function App() {
       <footer className="bg-slate-900 border-t border-slate-850 py-5 text-center text-slate-400 text-xs mt-auto">
         <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-3">
           <p className="text-slate-500 font-sans text-center md:text-right">
-            حقوق الطبع والنشر © 2026 InfoDoctors. منصة العيادة والتدقيق الصيدلاني المعتمدة للالتزام العلاجي.
+            {t('nav.system_footer', 'حقوق الطبع والنشر © 2026 InfoDoctors. منصة العيادة والتدقيق الصيدلاني المعتمدة للالتزام العلاجي.')}
           </p>
           <div className="flex items-center gap-2">
             {/* Secret Footer Lock Trigger for Admin Login */}

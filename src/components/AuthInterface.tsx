@@ -9,6 +9,7 @@ import {
   Lock, Mail, User, ShieldCheck, AlertCircle, Check, 
   RotateCw, KeyRound, Fingerprint, ShieldAlert, FileText, CheckCircle2
 } from "lucide-react";
+import { useLanguage } from "../LanguageContext";
 
 interface AuthInterfaceProps {
   role?: 'patient' | 'pharmacist' | 'admin';
@@ -18,6 +19,7 @@ interface AuthInterfaceProps {
 }
 
 export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogout, currentUser }: AuthInterfaceProps) {
+  const { t, isRtl, dir } = useLanguage();
   const [view, setView] = useState<'login' | 'register' | 'forgot' | 'reset-submit'>('login');
   
   // Fields state
@@ -94,10 +96,10 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "فشل تسجيل الدخول التلقائي");
+        throw new Error(data.error || (isRtl ? "فشل تسجيل الدخول التلقائي" : "Automatic login failed"));
       }
 
-      setSuccess(`تم تسجيل الدخول كـ (${targetRole === 'patient' ? "مريض" : targetRole === 'pharmacist' ? "صيدلي" : "أدمن"}) بنجاح!`);
+      setSuccess(isRtl ? `تم تسجيل الدخول كـ (${targetRole === 'patient' ? "مريض" : targetRole === 'pharmacist' ? "صيدلي" : "أدمن"}) بنجاح!` : `Logged in as (${targetRole}) successfully!`);
       setTimeout(() => {
         onAuthSuccess(data.token, data.user);
         setIsLoading(false);
@@ -136,10 +138,10 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "فشل تسجيل الدخول");
+        throw new Error(data.error || (isRtl ? "فشل تسجيل الدخول" : "Login failed"));
       }
 
-      setSuccess("تم تسجيل الدخول بنجاح! جاري تحميل الجلسة الموثقة...");
+      setSuccess(isRtl ? "تم تسجيل الدخول بنجاح! جاري تحميل الجلسة الموثقة..." : "Login successful! Loading session...");
       setTimeout(() => {
         onAuthSuccess(data.token, data.user);
         setIsLoading(false);
@@ -158,28 +160,39 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
     setIsLoading(true);
 
     // Dynamic validations
-    if (registerRole === 'patient' && !nationalId) {
-      setError("الرقم القومي مطلوب لتسجيل حساب مريض");
+    if (password.length < 6) {
+      setError(isRtl ? "كلمة المرور يجب أن تكون 6 خانات على الأقل" : "Password must be at least 6 characters");
       setIsLoading(false);
       return;
     }
+
+    if (registerRole === 'patient' && (!nationalId || nationalId.length !== 14)) {
+      setError(isRtl ? "الرقم القومي المصري للمريض يجب أن يتكون من 14 رقماً صحيحاً" : "Egyptian National ID must be 14 digits");
+      setIsLoading(false);
+      return;
+    }
+
     if (registerRole === 'pharmacist' && !licenseNumber) {
-      setError("رقم ترخيص مزاولة المهنة مطلوب لحساب الصيدلي");
+      setError(isRtl ? "يرجى كتابة رقم ترخيص مزاولة المهنة للصيدلي" : "Please provide professional license number");
       setIsLoading(false);
       return;
     }
 
     try {
-      const payload = {
+      const payload: any = {
         email,
         password,
-        role: registerRole,
         fullName,
-        nationalId: registerRole === 'patient' ? nationalId : undefined,
-        licenseNumber: registerRole === 'pharmacist' ? licenseNumber : undefined,
+        role: registerRole,
         securityQuestion,
         securityAnswer
       };
+
+      if (registerRole === 'patient') {
+        payload.nationalId = nationalId;
+      } else if (registerRole === 'pharmacist') {
+        payload.licenseNumber = licenseNumber;
+      }
 
       const res = await fetch("/api/v1/auth/register", {
         method: "POST",
@@ -189,10 +202,10 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "فشل إنشاء الحساب المهني");
+        throw new Error(data.error || (isRtl ? "فشل إنشاء الحساب" : "Account creation failed"));
       }
 
-      setSuccess("تم إنشاء حسابك المعتمد بنجاح وتوليد رمز جلسة JWT!");
+      setSuccess(isRtl ? "تم إنشاء الحساب بنجاح! تسجيل الدخول التلقائي..." : "Account created successfully! Auto logging in...");
       setTimeout(() => {
         onAuthSuccess(data.token, data.user);
         setIsLoading(false);
@@ -207,6 +220,7 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
   const handleResetRequest = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSuccess(null);
     setIsLoading(true);
 
     try {
@@ -218,7 +232,7 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "فشل البحث عن الحساب");
+        throw new Error(data.error || (isRtl ? "فشل البحث عن الحساب" : "Account search failed"));
       }
 
       setFetchedQuestion(data.securityQuestion);
@@ -250,10 +264,10 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "فشل إعادة تعيين كلمة المرور");
+        throw new Error(data.error || (isRtl ? "فشل إعادة تعيين كلمة المرور" : "Password reset failed"));
       }
 
-      setSuccess("تمت إعادة تعيين كلمة مرورك بأمان! يرجى تسجيل الدخول.");
+      setSuccess(isRtl ? "تمت إعادة تعيين كلمة مرورك بأمان! يرجى تسجيل الدخول." : "Password reset successfully! Please log in.");
       setTimeout(() => {
         setView('login');
         clearForm();
@@ -266,45 +280,45 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
   };
 
   return (
-    <div className="w-full font-sans text-right" style={{ direction: "rtl" }}>
+    <div className={`w-full font-sans ${isRtl ? 'text-right' : 'text-left'}`} style={{ direction: dir }}>
       {/* If already logged in, show elegant session widget */}
       {currentUser ? (
         <div className="bg-slate-900 border border-teal-900/60 p-4 rounded-3xl text-slate-200 shadow-xl space-y-3.5">
           <div className="flex justify-between items-center bg-slate-950/50 p-2.5 rounded-2xl border border-slate-900">
             <span className="text-[10px] uppercase font-mono tracking-wider font-extrabold text-teal-400 flex items-center space-x-1 space-x-reverse">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping inline-block"></span>
-              <span>مؤمن بـ JWT</span>
+              <span>JWT Secured</span>
             </span>
-            <div className="flex items-center space-x-2 space-x-reverse text-right">
+            <div className="flex items-center space-x-2 space-x-reverse">
               <Fingerprint className="w-4 h-4 text-teal-400" />
-              <span className="text-xs font-bold text-white">جلسة نشطة موثقة</span>
+              <span className="text-xs font-bold text-white">{t('portal.active_session', 'جلسة نشطة موثقة')}</span>
             </div>
           </div>
 
           <div className="space-y-1 text-xs">
             <div className="flex justify-between py-1 border-b border-slate-950/40">
-              <span className="text-slate-400">الاسم الكامل:</span>
+              <span className="text-slate-400">{isRtl ? "الاسم الكامل:" : "Full Name:"}</span>
               <span className="font-bold text-white">{currentUser.fullName}</span>
             </div>
             <div className="flex justify-between py-1 border-b border-slate-950/40">
-              <span className="text-slate-400">البريد الإلكتروني:</span>
+              <span className="text-slate-400">{isRtl ? "البريد الإلكتروني:" : "Email:"}</span>
               <span className="font-mono text-white text-[11px]">{currentUser.email}</span>
             </div>
             <div className="flex justify-between py-1 border-b border-slate-950/40">
-              <span className="text-slate-400">صلاحية النظام:</span>
+              <span className="text-slate-400">{isRtl ? "صلاحية النظام:" : "System Role:"}</span>
               <span className="bg-teal-900/40 text-teal-300 px-2 py-0.5 rounded-md font-bold text-[10px]">
-                {currentUser.role === 'patient' ? "مريض معتمد" : currentUser.role === 'pharmacist' ? "صيدلي إكلينيكي" : "مدير نظام (Admin)"}
+                {currentUser.role === 'patient' ? (isRtl ? "مريض معتمد" : "Verified Patient") : currentUser.role === 'pharmacist' ? (isRtl ? "صيدلي إكلينيكي" : "Clinical Pharmacist") : (isRtl ? "مدير نظام (Admin)" : "System Admin")}
               </span>
             </div>
             
             {currentUser.nationalId ? (
               <div className="flex justify-between py-1 border-b border-slate-950/40">
-                <span className="text-slate-400">الرقم القومي:</span>
+                <span className="text-slate-400">{isRtl ? "الرقم القومي:" : "National ID:"}</span>
                 <span className="font-mono text-teal-400">{currentUser.nationalId}</span>
               </div>
             ) : currentUser.licenseNumber ? (
               <div className="flex justify-between py-1 border-b border-slate-950/40">
-                <span className="text-slate-400">مزاولة المهنة:</span>
+                <span className="text-slate-400">{isRtl ? "مزاولة المهنة:" : "License No:"}</span>
                 <span className="font-mono text-teal-400">{currentUser.licenseNumber}</span>
               </div>
             ) : null}
@@ -315,7 +329,7 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
               onClick={onLogout}
               className="w-full mt-2 py-2 bg-rose-950/40 hover:bg-rose-900/60 border border-rose-900/60 text-rose-350 hover:text-white rounded-2xl text-[11px] font-bold transition-all cursor-pointer flex items-center justify-center space-x-1.5 space-x-reverse"
             >
-              <span>تسجيل الخروج وإنهاء جلسة JWT</span>
+              <span>{isRtl ? "تسجيل الخروج وإنهاء جلسة JWT" : "Sign Out & Terminate JWT Session"}</span>
             </button>
           )}
         </div>
@@ -327,24 +341,24 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
               <Fingerprint className="w-6 h-6" />
             </div>
             <h3 className="text-sm font-black text-slate-900">
-              {role === 'patient' ? "بوابة دخول المريض الرقمية" : role === 'pharmacist' ? "بوابة تدقيق الصيدلي الإكلينيكي" : "بوابة مدير النظام الإكلينيكي"}
+              {role === 'patient' ? (isRtl ? "بوابة دخول المريض الرقمية" : "Patient Digital Portal") : role === 'pharmacist' ? (isRtl ? "بوابة تدقيق الصيدلي الإكلينيكي" : "Clinical Pharmacist Workspace") : (isRtl ? "بوابة مدير النظام الإكلينيكي" : "System Administrator Portal")}
             </h3>
             <p className="text-[10px] text-slate-500 mt-1">
-              {view === 'login' ? "سجل دخولك فورا لتنشيط منبهات الأدوية وجلسة المتابعة" : 
-               view === 'register' ? "أنشئ حساباً جديداً متكاملاً مع تشفير الجلسات" : "استرداد آمن بأسئلة الأمان المقاومة للاختراق"}
+              {view === 'login' ? (isRtl ? "سجل دخولك فورا لتنشيط منبهات الأدوية وجلسة المتابعة" : "Log in to access your digital pillbox and consultations") : 
+               view === 'register' ? (isRtl ? "أنشئ حساباً جديداً متكاملاً مع تشفير الجلسات" : "Create a new encrypted healthcare account") : (isRtl ? "استرداد آمن بأسئلة الأمان المقاومة للاختراق" : "Secure recovery with security question")}
             </p>
           </div>
 
           {/* Flash Feedback */}
           {error && (
-            <div className="p-3 bg-rose-50 border border-rose-100/80 rounded-2xl text-[10.5px] text-rose-700 flex items-center space-x-2 space-x-reverse font-medium text-right">
+            <div className="p-3 bg-rose-50 border border-rose-100/80 rounded-2xl text-[10.5px] text-rose-700 flex items-center space-x-2 space-x-reverse font-medium">
               <ShieldAlert className="w-4 h-4 shrink-0 text-rose-600" />
               <span>{error}</span>
             </div>
           )}
 
           {success && (
-            <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-2xl text-[10.5px] text-emerald-700 flex items-center space-x-2 space-x-reverse font-medium text-right">
+            <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-2xl text-[10.5px] text-emerald-700 flex items-center space-x-2 space-x-reverse font-medium">
               <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
               <span>{success}</span>
             </div>
@@ -359,10 +373,10 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 onSubmit={handleLogin} 
-                className="space-y-3.5 text-right"
+                className="space-y-3.5"
               >
                 <div>
-                  <label className="block text-xs font-black text-slate-900 mb-1">البريد الإلكتروني المعتمد</label>
+                  <label className="block text-xs font-black text-slate-900 mb-1">{t('auth.email', 'البريد الإلكتروني المعتمد')}</label>
                   <div className="relative">
                     <input
                       type="email"
@@ -370,14 +384,14 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="name@mail.eg"
-                      className="w-full pl-3 pr-10 py-2.5 bg-white border-2 border-slate-300 rounded-2xl text-xs font-black outline-none focus:border-teal-600 focus:bg-white text-right font-sans text-slate-950 placeholder:text-slate-500 shadow-xs"
+                      className={`w-full ${isRtl ? 'pl-3 pr-10' : 'pr-3 pl-10'} py-2.5 bg-white border-2 border-slate-300 rounded-2xl text-xs font-black outline-none focus:border-teal-600 focus:bg-white font-sans text-slate-950 placeholder:text-slate-500 shadow-xs`}
                     />
-                    <Mail className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-700" />
+                    <Mail className={`absolute ${isRtl ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 w-4 h-4 text-slate-700`} />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-black text-slate-900 mb-1">كلمة المرور السرية</label>
+                  <label className="block text-xs font-black text-slate-900 mb-1">{t('auth.password', 'كلمة المرور السرية')}</label>
                   <div className="relative">
                     <input
                       type="password"
@@ -385,19 +399,19 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••"
-                      className="w-full pl-3 pr-10 py-2.5 bg-white border-2 border-slate-300 rounded-2xl text-xs font-black outline-none focus:border-teal-600 focus:bg-white text-right font-sans text-slate-950 placeholder:text-slate-500 shadow-xs"
+                      className={`w-full ${isRtl ? 'pl-3 pr-10' : 'pr-3 pl-10'} py-2.5 bg-white border-2 border-slate-300 rounded-2xl text-xs font-black outline-none focus:border-teal-600 focus:bg-white font-sans text-slate-950 placeholder:text-slate-500 shadow-xs`}
                     />
-                    <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-700" />
+                    <Lock className={`absolute ${isRtl ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 w-4 h-4 text-slate-700`} />
                   </div>
                 </div>
 
-                <div className="text-left">
+                <div className={isRtl ? 'text-left' : 'text-right'}>
                   <button
                     type="button"
                     onClick={() => { setView('forgot'); setError(null); }}
                     className="text-xs text-teal-800 hover:text-teal-950 font-black transition-colors cursor-pointer focus:outline-none underline"
                   >
-                    نسيت كلمة المرور؟ استرداد الحساب
+                    {isRtl ? "نسيت كلمة المرور؟ استرداد الحساب" : "Forgot password? Recover account"}
                   </button>
                 </div>
 
@@ -408,7 +422,7 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
                     className="w-full py-3 bg-teal-700 hover:bg-teal-800 disabled:bg-slate-300 text-white font-black rounded-2xl text-xs transition-colors cursor-pointer flex items-center justify-center space-x-2 space-x-reverse shadow-md shadow-teal-700/20"
                   >
                     {isLoading ? <RotateCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-                    <span>تسجيل الدخول الآمن (JWT)</span>
+                    <span>{t('auth.login_btn', 'تسجيل الدخول الآمن (JWT)')}</span>
                   </button>
 
                   <button
@@ -417,7 +431,7 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
                     disabled={isLoading}
                     className="w-full py-2.5 bg-emerald-100 hover:bg-emerald-200 border-2 border-emerald-400 text-emerald-950 font-black rounded-2xl text-xs transition-all cursor-pointer flex items-center justify-center space-x-1.5 space-x-reverse"
                   >
-                    <span>⚡ تعبئة تلقائية ودخول مباشر ({role === 'pharmacist' ? "صيدلي" : role === 'admin' ? "أدمن" : "مريض"})</span>
+                    <span>⚡ {isRtl ? `تعبئة تلقائية ودخول مباشر (${role === 'pharmacist' ? "صيدلي" : role === 'admin' ? "أدمن" : "مريض"})` : `Quick Demo Login (${role})`}</span>
                   </button>
                 </div>
               </motion.form>
@@ -430,11 +444,11 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 onSubmit={handleRegister} 
-                className="space-y-3 text-right"
+                className="space-y-3"
               >
                 {/* ROLE SELECTION COMPONENT: patient, pharmacist, admin */}
                 <div>
-                  <label className="block text-xs font-black text-slate-900 mb-1.5">اختر فئة وصلاحية المستخدم</label>
+                  <label className="block text-xs font-black text-slate-900 mb-1.5">{isRtl ? "اختر فئة وصلاحية المستخدم" : "Select User Role"}</label>
                   <div className="grid grid-cols-3 gap-1.5 bg-slate-100 border-2 border-slate-300 p-1.5 rounded-2xl">
                     <button
                       type="button"
@@ -445,7 +459,7 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
                           : 'text-slate-900 hover:bg-white bg-slate-200/80'
                       }`}
                     >
-                      مريض (Patient)
+                      {isRtl ? "مريض (Patient)" : "Patient"}
                     </button>
                     <button
                       type="button"
@@ -456,7 +470,7 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
                           : 'text-slate-900 hover:bg-white bg-slate-200/80'
                       }`}
                     >
-                      صيدلي (Pharmacist)
+                      {isRtl ? "صيدلي (Pharmacist)" : "Pharmacist"}
                     </button>
                     <button
                       type="button"
@@ -467,28 +481,28 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
                           : 'text-slate-900 hover:bg-white bg-slate-200/80'
                       }`}
                     >
-                      مدير (Admin)
+                      {isRtl ? "مدير (Admin)" : "Admin"}
                     </button>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-black text-slate-900 mb-1">الاسم ثلاثي أو رباعي</label>
+                  <label className="block text-xs font-black text-slate-900 mb-1">{t('auth.name', 'الاسم الكامل')}</label>
                   <div className="relative">
                     <input
                       type="text"
                       required
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
-                      placeholder="أدخل الاسم الحقيقي المتطابق مع الهوية"
-                      className="w-full pl-3 pr-10 py-2.5 bg-white border-2 border-slate-300 rounded-2xl text-xs font-black text-slate-950 placeholder:text-slate-500 outline-none focus:border-teal-600 focus:bg-white text-right shadow-xs"
+                      placeholder={isRtl ? "أدخل الاسم الحقيقي المتطابق مع الهوية" : "Enter full name"}
+                      className={`w-full ${isRtl ? 'pl-3 pr-10' : 'pr-3 pl-10'} py-2.5 bg-white border-2 border-slate-300 rounded-2xl text-xs font-black text-slate-950 placeholder:text-slate-500 outline-none focus:border-teal-600 focus:bg-white shadow-xs`}
                     />
-                    <User className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-700" />
+                    <User className={`absolute ${isRtl ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 w-4 h-4 text-slate-700`} />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-black text-slate-900 mb-1">البريد الإلكتروني المعتمد</label>
+                  <label className="block text-xs font-black text-slate-900 mb-1">{t('auth.email', 'البريد الإلكتروني المعتمد')}</label>
                   <div className="relative">
                     <input
                       type="email"
@@ -496,15 +510,15 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="example@mail.eg"
-                      className="w-full pl-3 pr-10 py-2.5 bg-white border-2 border-slate-300 rounded-2xl text-xs font-black text-slate-950 placeholder:text-slate-500 outline-none focus:border-teal-600 focus:bg-white text-right shadow-xs"
+                      className={`w-full ${isRtl ? 'pl-3 pr-10' : 'pr-3 pl-10'} py-2.5 bg-white border-2 border-slate-300 rounded-2xl text-xs font-black text-slate-950 placeholder:text-slate-500 outline-none focus:border-teal-600 focus:bg-white shadow-xs`}
                     />
-                    <Mail className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-700" />
+                    <Mail className={`absolute ${isRtl ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 w-4 h-4 text-slate-700`} />
                   </div>
                 </div>
 
                 {registerRole === 'patient' && (
                   <div>
-                    <label className="block text-xs font-black text-slate-900 mb-1">الرقم القومي (14 رقم)</label>
+                    <label className="block text-xs font-black text-slate-900 mb-1">{isRtl ? "الرقم القومي (14 رقم)" : "National ID (14 digits)"}</label>
                     <div className="relative">
                       <input
                         type="text"
@@ -513,16 +527,16 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
                         value={nationalId}
                         onChange={(e) => setNationalId(e.target.value.replace(/\D/g, ""))}
                         placeholder="29505202712345"
-                        className="w-full pl-3 pr-10 py-2.5 bg-white border-2 border-slate-300 rounded-2xl text-xs font-black text-slate-950 placeholder:text-slate-500 outline-none focus:border-teal-600 focus:bg-white text-right font-mono shadow-xs"
+                        className={`w-full ${isRtl ? 'pl-3 pr-10' : 'pr-3 pl-10'} py-2.5 bg-white border-2 border-slate-300 rounded-2xl text-xs font-black text-slate-950 placeholder:text-slate-500 outline-none focus:border-teal-600 focus:bg-white font-mono shadow-xs`}
                       />
-                      <FileText className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-700" />
+                      <FileText className={`absolute ${isRtl ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 w-4 h-4 text-slate-700`} />
                     </div>
                   </div>
                 )}
 
                 {registerRole === 'pharmacist' && (
                   <div>
-                    <label className="block text-xs font-black text-slate-900 mb-1">رقم ترخيص مزاولة المهنة (نقابة الصيادلة)</label>
+                    <label className="block text-xs font-black text-slate-900 mb-1">{isRtl ? "رقم ترخيص مزاولة المهنة (نقابة الصيادلة)" : "Professional License Number"}</label>
                     <div className="relative">
                       <input
                         type="text"
@@ -530,57 +544,57 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
                         value={licenseNumber}
                         onChange={(e) => setLicenseNumber(e.target.value)}
                         placeholder="LIC-12345"
-                        className="w-full pl-3 pr-10 py-2.5 bg-white border-2 border-slate-300 rounded-2xl text-xs font-black text-slate-950 placeholder:text-slate-500 outline-none focus:border-teal-600 focus:bg-white text-right font-mono shadow-xs"
+                        className={`w-full ${isRtl ? 'pl-3 pr-10' : 'pr-3 pl-10'} py-2.5 bg-white border-2 border-slate-300 rounded-2xl text-xs font-black text-slate-950 placeholder:text-slate-500 outline-none focus:border-teal-600 focus:bg-white font-mono shadow-xs`}
                       />
-                      <ShieldAlert className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-700" />
+                      <ShieldAlert className={`absolute ${isRtl ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 w-4 h-4 text-slate-700`} />
                     </div>
                   </div>
                 )}
 
                 {registerRole === 'admin' && (
-                  <div className="bg-amber-100 p-3 rounded-2xl border-2 border-amber-300 text-right">
-                    <span className="text-xs text-amber-950 font-black uppercase block">مدير نظام مؤمن بالكامل (Admin)</span>
-                    <p className="text-[11px] text-amber-900 font-bold leading-tight mt-0.5">لا يتطلب حساب المشرف إدخال رقم قومي أو ترخيص مزاولة رعاية صحية.</p>
+                  <div className="bg-amber-100 p-3 rounded-2xl border-2 border-amber-300">
+                    <span className="text-xs text-amber-950 font-black uppercase block">{isRtl ? "مدير نظام مؤمن بالكامل (Admin)" : "System Administrator (Admin)"}</span>
+                    <p className="text-[11px] text-amber-900 font-bold leading-tight mt-0.5">{isRtl ? "لا يتطلب حساب المشرف إدخال رقم قومي أو ترخيص مزاولة رعاية صحية." : "Administrator accounts do not require a national ID or pharmacy license."}</p>
                   </div>
                 )}
 
                 <div>
-                  <label className="block text-xs font-black text-slate-900 mb-1">كلمة المرور الجديدة</label>
+                  <label className="block text-xs font-black text-slate-900 mb-1">{t('auth.password', 'كلمة المرور الجديدة')}</label>
                   <div className="relative">
                     <input
                       type="password"
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="6 خانات على الأقل"
-                      className="w-full pl-3 pr-10 py-2.5 bg-white border-2 border-slate-300 rounded-2xl text-xs font-black text-slate-950 placeholder:text-slate-500 outline-none focus:border-teal-600 focus:bg-white text-right shadow-xs"
+                      placeholder={isRtl ? "6 خانات على الأقل" : "Minimum 6 characters"}
+                      className={`w-full ${isRtl ? 'pl-3 pr-10' : 'pr-3 pl-10'} py-2.5 bg-white border-2 border-slate-300 rounded-2xl text-xs font-black text-slate-950 placeholder:text-slate-500 outline-none focus:border-teal-600 focus:bg-white shadow-xs`}
                     />
-                    <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-700" />
+                    <Lock className={`absolute ${isRtl ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 w-4 h-4 text-slate-700`} />
                   </div>
                 </div>
 
                 <div className="bg-slate-100 p-3 rounded-2xl border-2 border-slate-300 space-y-2">
                   <div className="text-xs text-teal-950 font-black flex items-center justify-between">
-                    <span>حماية مضافة (استرداد بمستند الأمان)</span>
-                    <span className="text-[10px] bg-teal-200 text-teal-950 px-1.5 py-0.5 rounded font-black">سؤال الأمان</span>
+                    <span>{isRtl ? "حماية مضافة (استرداد بمستند الأمان)" : "Additional Security (Recovery Question)"}</span>
+                    <span className="text-[10px] bg-teal-200 text-teal-950 px-1.5 py-0.5 rounded font-black">{isRtl ? "سؤال الأمان" : "Security Question"}</span>
                   </div>
                   <select
                     value={securityQuestion}
                     onChange={(e) => setSecurityQuestion(e.target.value)}
                     className="w-full p-2 bg-white border-2 border-slate-300 rounded-xl text-xs font-black text-slate-950 outline-none cursor-pointer"
                   >
-                    <option value="ما هو اسم مدينتك المفضلة؟">ما هو اسم مدينتك المفضلة؟</option>
-                    <option value="ما اسم أول حيوان أليف قمت ببيعه أو تربيته؟">ما اسم أول حيوان أليف تربيته؟</option>
-                    <option value="ما هي علامة تجارية لأول سيارة تملكها؟">ما هي علامة تجارية لأول سيارة؟</option>
-                    <option value="ما هو اسم مدرستك الابتدائية؟">ما هو اسم مدرستك الابتدائية؟</option>
+                    <option value="ما هو اسم مدينتك المفضلة؟">{isRtl ? "ما هو اسم مدينتك المفضلة؟" : "What is your favorite city?"}</option>
+                    <option value="ما اسم أول حيوان أليف قمت ببيعه أو تربيته؟">{isRtl ? "ما اسم أول حيوان أليف تربيته؟" : "What was the name of your first pet?"}</option>
+                    <option value="ما هي علامة تجارية لأول سيارة تملكها؟">{isRtl ? "ما هي علامة تجارية لأول سيارة؟" : "What was the brand of your first car?"}</option>
+                    <option value="ما هو اسم مدرستك الابتدائية؟">{isRtl ? "ما هو اسم مدرستك الابتدائية؟" : "What was the name of your primary school?"}</option>
                   </select>
                   <input
                     type="text"
                     required
                     value={securityAnswer}
                     onChange={(e) => setSecurityAnswer(e.target.value)}
-                    placeholder="إجابة الأمان الذكية السرية"
-                    className="w-full p-2 bg-white border-2 border-slate-300 rounded-xl text-xs font-black text-slate-950 placeholder:text-slate-500 outline-none focus:border-teal-600 text-right shadow-xs"
+                    placeholder={isRtl ? "إجابة الأمان الذكية السرية" : "Secret security answer"}
+                    className="w-full p-2 bg-white border-2 border-slate-300 rounded-xl text-xs font-black text-slate-950 placeholder:text-slate-500 outline-none focus:border-teal-600 shadow-xs"
                   />
                 </div>
 
@@ -590,7 +604,7 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
                   className="w-full py-3 bg-teal-700 hover:bg-teal-800 disabled:bg-slate-300 text-white font-black rounded-2xl text-xs transition-colors cursor-pointer flex items-center justify-center space-x-2 space-x-reverse shadow-md shadow-teal-700/20"
                 >
                   {isLoading ? <RotateCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-                  <span>تسجيل حساب معتمد فوري</span>
+                  <span>{t('auth.register_btn', 'تسجيل حساب معتمد فوري')}</span>
                 </button>
               </motion.form>
             )}
@@ -602,20 +616,20 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 onSubmit={handleResetRequest} 
-                className="space-y-3.5 text-right"
+                className="space-y-3.5"
               >
                 <div>
-                  <label className="block text-xs font-black text-slate-900 mb-1">البريد الإلكتروني المفقود</label>
+                  <label className="block text-xs font-black text-slate-900 mb-1">{isRtl ? "البريد الإلكتروني المفقود" : "Registered Email"}</label>
                   <div className="relative">
                     <input
                       type="email"
                       required
                       value={resetEmail}
                       onChange={(e) => setResetEmail(e.target.value)}
-                      placeholder="أدخل بريدك المعياري للبحث في النظام"
-                      className="w-full pl-3 pr-10 py-2.5 bg-white border-2 border-slate-300 rounded-2xl text-xs font-black text-slate-950 placeholder:text-slate-500 outline-none focus:border-teal-600 focus:bg-white text-right shadow-xs"
+                      placeholder={isRtl ? "أدخل بريدك المعياري للبحث في النظام" : "Enter email to locate account"}
+                      className={`w-full ${isRtl ? 'pl-3 pr-10' : 'pr-3 pl-10'} py-2.5 bg-white border-2 border-slate-300 rounded-2xl text-xs font-black text-slate-950 placeholder:text-slate-500 outline-none focus:border-teal-600 focus:bg-white shadow-xs`}
                     />
-                    <Mail className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-700" />
+                    <Mail className={`absolute ${isRtl ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 w-4 h-4 text-slate-700`} />
                   </div>
                 </div>
 
@@ -625,7 +639,7 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
                   className="w-full py-3 bg-teal-700 hover:bg-teal-800 disabled:bg-slate-300 text-white font-black rounded-2xl text-xs transition-colors cursor-pointer flex items-center justify-center space-x-2 space-x-reverse shadow-md shadow-teal-700/20"
                 >
                   {isLoading ? <RotateCw className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
-                  <span>جلب سؤال الأمان للتحقق</span>
+                  <span>{isRtl ? "جلب سؤال الأمان للتحقق" : "Fetch Security Question"}</span>
                 </button>
               </motion.form>
             )}
@@ -637,34 +651,34 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 onSubmit={handleResetSubmit} 
-                className="space-y-3.5 text-right"
+                className="space-y-3.5"
               >
                 <div className="bg-teal-100 p-3.5 rounded-2xl border-2 border-teal-300 text-teal-950 mb-1">
-                  <span className="text-xs text-teal-900 font-black block">سؤال الأمان المسجل:</span>
-                  <p className="text-xs font-black mt-0.5 text-right text-slate-950">{fetchedQuestion}</p>
+                  <span className="text-xs text-teal-900 font-black block">{isRtl ? "سؤال الأمان المسجل:" : "Registered Security Question:"}</span>
+                  <p className="text-xs font-black mt-0.5 text-slate-950">{fetchedQuestion}</p>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-black text-slate-900 mb-1">إجابة سؤال الأمان</label>
+                  <label className="block text-xs font-black text-slate-900 mb-1">{isRtl ? "إجابة سؤال الأمان" : "Security Question Answer"}</label>
                   <input
                     type="text"
                     required
                     value={resetAnswer}
                     onChange={(e) => setResetAnswer(e.target.value)}
-                    placeholder="إجابتك المسجلة مسبقاً"
-                    className="w-full p-2.5 bg-white border-2 border-slate-300 rounded-2xl text-xs font-black text-slate-950 placeholder:text-slate-500 outline-none focus:border-teal-600 focus:bg-white text-right shadow-xs"
+                    placeholder={isRtl ? "إجابتك المسجلة مسبقاً" : "Your registered answer"}
+                    className="w-full p-2.5 bg-white border-2 border-slate-300 rounded-2xl text-xs font-black text-slate-950 placeholder:text-slate-500 outline-none focus:border-teal-600 focus:bg-white shadow-xs"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-black text-slate-900 mb-1">كلمة المرور الجديدة</label>
+                  <label className="block text-xs font-black text-slate-900 mb-1">{isRtl ? "كلمة المرور الجديدة" : "New Password"}</label>
                   <input
                     type="password"
                     required
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="أدخل كلمة المرور الجديدة"
-                    className="w-full p-2.5 bg-white border-2 border-slate-300 rounded-2xl text-xs font-black text-slate-950 placeholder:text-slate-500 outline-none focus:border-teal-600 focus:bg-white text-right shadow-xs"
+                    placeholder={isRtl ? "أدخل كلمة المرور الجديدة" : "Enter new password"}
+                    className="w-full p-2.5 bg-white border-2 border-slate-300 rounded-2xl text-xs font-black text-slate-950 placeholder:text-slate-500 outline-none focus:border-teal-600 focus:bg-white shadow-xs"
                   />
                 </div>
 
@@ -674,32 +688,32 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
                   className="w-full py-3 bg-rose-700 hover:bg-rose-800 disabled:bg-slate-300 text-white font-black rounded-2xl text-xs transition-colors cursor-pointer flex items-center justify-center space-x-2 space-x-reverse shadow-md shadow-rose-700/20"
                 >
                   {isLoading ? <RotateCw className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
-                  <span>تأكيد الإجابة وإعادة تعيين كلمة المرور</span>
+                  <span>{isRtl ? "تأكيد الإجابة وإعادة تعيين كلمة المرور" : "Confirm Answer & Reset Password"}</span>
                 </button>
               </motion.form>
             )}
           </AnimatePresence>
 
           {/* Selector Switch Footer */}
-          <div className="border-t border-slate-100 pt-3 flex items-center justify-between text-right text-[11px] leading-none" style={{ direction: "rtl" }}>
+          <div className="border-t border-slate-100 pt-3 flex items-center justify-between text-[11px] leading-none" style={{ direction: dir }}>
             {view === 'login' ? (
               <p className="text-slate-500">
-                ليس لديك حساب؟{" "}
+                {isRtl ? "ليس لديك حساب؟ " : "Don't have an account? "}
                 <button 
                   onClick={() => { setView('register'); setError(null); }}
                   className="text-teal-600 font-extrabold hover:underline cursor-pointer focus:outline-none"
                 >
-                  سجل الآن مجاناً
+                  {isRtl ? "سجل الآن مجاناً" : "Register now"}
                 </button>
               </p>
             ) : (
               <p className="text-slate-500">
-                لديك حساب بالفعل؟{" "}
+                {isRtl ? "لديك حساب بالفعل؟ " : "Already have an account? "}
                 <button 
                   onClick={() => { setView('login'); setError(null); }}
                   className="text-teal-600 font-extrabold hover:underline cursor-pointer focus:outline-none"
                 >
-                  سجل الدخول فوراً
+                  {isRtl ? "سجل الدخول فوراً" : "Log in directly"}
                 </button>
               </p>
             )}
@@ -715,7 +729,7 @@ export default function AuthInterface({ role = 'patient', onAuthSuccess, onLogou
               }}
               className="text-[10px] bg-amber-50 hover:bg-amber-100/80 border border-amber-200 text-amber-900 px-2.5 py-1.5 rounded-xl font-bold transition-all cursor-pointer flex items-center space-x-1 space-x-reverse focus:outline-none"
             >
-              <span>⚡ تجربة تعبئة تلقائية ({view === 'register' ? (registerRole === 'patient' ? "مريض" : registerRole === 'pharmacist' ? "صيدلي" : "أدمن") : (role === 'pharmacist' ? "صيدلي" : "مريض")})</span>
+              <span>⚡ {isRtl ? `تجربة تعبئة تلقائية (${view === 'register' ? (registerRole === 'patient' ? "مريض" : registerRole === 'pharmacist' ? "صيدلي" : "أدمن") : (role === 'pharmacist' ? "صيدلي" : "مريض")})` : `Demo Fill (${role})`}</span>
             </button>
           </div>
         </div>
