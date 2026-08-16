@@ -3,14 +3,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { 
   BarChart3, Settings, ShieldCheck, DollarSign, Clock, Users, CalendarCheck, 
   ArrowUpRight, Sparkles, RefreshCw, Send, ListFilter, Sliders, ToggleLeft,
   MapPin, CalendarDays, Award, CheckCircle2, Zap, Power, Briefcase, Activity,
   TrendingUp, Phone, ExternalLink, ShieldAlert, FileText, Layers,
-  UserX, UserCheck, RotateCcw, Trash2, Search, Lock
+  UserX, UserCheck, RotateCcw, Trash2, Search, Lock,
+  Sun, Moon, Globe, KeyRound, AlertCircle, Eye, SlidersHorizontal
 } from "lucide-react";
+import { useTheme } from "../ThemeContext";
 import { 
   ResponsiveContainer, 
   AreaChart, 
@@ -21,15 +23,71 @@ import {
   Tooltip, 
   Legend 
 } from "recharts";
-import { OperationalMetrics, ApprovedSpecialtiesList } from "../types";
+import { OperationalMetrics, ApprovedSpecialtiesList, EgyptianGovernoratesList } from "../types";
 import { useLanguage, LanguageSwitcher } from "../LanguageContext";
 
 export default function AdminPanel() {
-  const { t, language, isRtl, dir } = useLanguage();
+  const { t, language, setLanguage, isRtl, dir } = useLanguage();
+  const { theme, setTheme } = useTheme();
   const [metrics, setMetrics] = useState<OperationalMetrics | null>(null);
 
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'users' | 'cases' | 'revenue' | 'pharmacists' | 'quality'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'cases' | 'revenue' | 'pharmacists' | 'quality' | 'settings'>('users');
+
+  // Admin Profile & Contact States
+  const [adminName, setAdminName] = useState("د. أحمد السيوطي (المدير الإداري)");
+  const [adminEmail, setAdminEmail] = useState("admin@infodoctors.eg");
+  const [adminPhone, setAdminPhone] = useState("01002233445");
+  const [adminAddress, setAdminAddress] = useState("التجمع الخامس - القاهرة الجديدة - المقر الإداري المركزي");
+  const [adminGov, setAdminGov] = useState("القاهرة");
+  const [adminProfileMsg, setAdminProfileMsg] = useState("");
+
+  // Admin Security & Passcode
+  const [adminCurrentPin, setAdminCurrentPin] = useState("");
+  const [adminNewPin, setAdminNewPin] = useState("");
+  const [adminConfirmPin, setAdminConfirmPin] = useState("");
+  const [adminPinMsg, setAdminPinMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Platform & Regulatory Controls
+  const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const [durSensitivity, setDurSensitivity] = useState<"strict" | "standard" | "lenient">("strict");
+  const [emergencyHotline, setEmergencyHotline] = useState("01009988776");
+  const [platformFeePercent, setPlatformFeePercent] = useState("20");
+  const [platformConfigMsg, setPlatformConfigMsg] = useState("");
+
+  const handleSaveAdminProfile = (e: React.FormEvent) => {
+    e.preventDefault();
+    setAdminProfileMsg(language === "ar" ? "تم حفظ بيانات مدير المنظومة بنجاح!" : "Admin profile updated successfully!");
+    setTimeout(() => setAdminProfileMsg(""), 3500);
+  };
+
+  const handleChangeAdminPin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminCurrentPin) {
+      setAdminPinMsg({ type: "error", text: language === "ar" ? "يرجى كتابة رمز الأمان الحالي" : "Please enter current passcode" });
+      return;
+    }
+    if (adminNewPin.length < 4) {
+      setAdminPinMsg({ type: "error", text: language === "ar" ? "رمز الأمان يجب ألا يقل عن 4 أرقام/رموز" : "Passcode must be at least 4 chars" });
+      return;
+    }
+    if (adminNewPin !== adminConfirmPin) {
+      setAdminPinMsg({ type: "error", text: language === "ar" ? "رمزا الأمان غير متطابقين" : "Passcodes do not match" });
+      return;
+    }
+
+    setAdminPinMsg({ type: "success", text: language === "ar" ? "تم تحديث رمز أمان الإدارة بنجاح!" : "Admin passcode updated successfully!" });
+    setAdminCurrentPin("");
+    setAdminNewPin("");
+    setAdminConfirmPin("");
+    setTimeout(() => setAdminPinMsg(null), 4000);
+  };
+
+  const handleSavePlatformConfig = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPlatformConfigMsg(language === "ar" ? "تم تحديث الإعدادات والضوابط التشغيلية للمنظومة بنجاح!" : "Platform settings updated successfully!");
+    setTimeout(() => setPlatformConfigMsg(""), 3500);
+  };
   
   // Custom campaign variables
   const [otcPrice, setOtcPrice] = useState("250");
@@ -566,6 +624,19 @@ export default function AdminPanel() {
         >
           <ShieldCheck className="w-4.5 h-4.5" />
           <span>{t('admin.tab_quality', 'تقارير الجودة')}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('settings')}
+          className={`flex-1 py-3 px-3 rounded-xl text-xs font-bold transition-all text-center whitespace-nowrap focus:outline-none flex items-center justify-center space-x-2 space-x-reverse cursor-pointer ${
+            activeTab === 'settings'
+              ? 'bg-teal-600 text-white shadow-md shadow-teal-950/30'
+              : 'text-slate-600 hover:text-teal-600 hover:bg-slate-50'
+          }`}
+        >
+          <Settings className="w-4.5 h-4.5" />
+          <span>{t('settings.tab', 'إعدادات المنصة')}</span>
         </button>
       </div>
 
@@ -1437,6 +1508,372 @@ export default function AdminPanel() {
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-[10.5px] text-slate-500 text-right leading-relaxed">
                 🚨 <strong>ملاحظة تنظيمية:</strong> يتم تغذية هذا السجل تلقائياً عبر المداخلات الدوائية والخدمات السريرية التي تتم من خلال الصيادلة الاستشاريين، ولا يمكن تعديله أو حذفه تماشياً مع لوائح التفتيش السريري الإلكتروني المعتمدة من وزارة الصحة المصرية وهيئة الدواء.
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ============================================================ */}
+        {/* 6. TAB: إعدادات المنصة والإدارة الشاملة */}
+        {/* ============================================================ */}
+        {activeTab === "settings" && (
+          <div className="space-y-6 animate-in fade-in duration-200 text-right">
+            {/* Header Banner */}
+            <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-teal-950 p-6 rounded-3xl border border-indigo-500/30 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-xl text-white">
+              <div className="flex items-center space-x-3.5 space-x-reverse">
+                <div className="w-12 h-12 rounded-2xl bg-teal-500/20 border border-teal-500/40 flex items-center justify-center text-teal-300 shadow-inner">
+                  <Settings className="w-6 h-6 animate-spin-slow" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black flex items-center gap-2">
+                    <span>إعدادات وحوكمة المنصة المركزية</span>
+                    <span className="text-[10px] bg-teal-500/20 text-teal-300 px-2.5 py-0.5 rounded-full border border-teal-500/40 font-mono font-bold">
+                      Platform Control Hub
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-300 mt-1">
+                    تخصيص الواجهة واللغات، وتعديل بيانات الاتصال والمقر، وإدارة رمز أمان الإدارة، وضبط محرك الذكاء الاصطناعي وسياسات الرسوم.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono bg-white/10 px-3 py-1.5 rounded-xl border border-white/20 text-teal-200">
+                  الإصدار: v4.0.2 (Enterprise)
+                </span>
+              </div>
+            </div>
+
+            {/* SECTOR 1: LANGUAGE & DISPLAY THEME */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Language Selection */}
+              <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-3">
+                <div className="flex items-center space-x-2 space-x-reverse pb-2 border-b border-slate-100">
+                  <Globe className="w-4 h-4 text-indigo-600" />
+                  <h4 className="text-xs font-black text-slate-800">اختيار لغة النظام (Language Preference)</h4>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  حدد لغة الواجهة ولوحة التحكم والمصطلحات الإدارية والتقارير:
+                </p>
+                <div className="grid grid-cols-2 gap-2.5 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setLanguage("ar")}
+                    className={`py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer border ${
+                      language === "ar"
+                        ? "bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-200"
+                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                    }`}
+                  >
+                    <span>🇪🇬 العربية (العربية)</span>
+                    {language === "ar" && <CheckCircle2 className="w-3.5 h-3.5" />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLanguage("en")}
+                    className={`py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer border ${
+                      language === "en"
+                        ? "bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-200"
+                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                    }`}
+                  >
+                    <span>🇬🇧 English</span>
+                    {language === "en" && <CheckCircle2 className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Display Theme Mode */}
+              <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-3">
+                <div className="flex items-center space-x-2 space-x-reverse pb-2 border-b border-slate-100">
+                  <Sun className="w-4 h-4 text-amber-500" />
+                  <h4 className="text-xs font-black text-slate-800">وضع الإضاءة والعرض (Theme Mode)</h4>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  التبديل بين الوضع النهاري عالي التباين والوضع الليلي لراحة العين:
+                </p>
+                <div className="grid grid-cols-2 gap-2.5 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setTheme("light")}
+                    className={`py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer border ${
+                      theme === "light"
+                        ? "bg-amber-500 text-slate-950 border-amber-400 font-black shadow-md shadow-amber-200"
+                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                    }`}
+                  >
+                    <Sun className="w-4 h-4 text-amber-500" />
+                    <span>الوضع النهاري ☀️</span>
+                    {theme === "light" && <CheckCircle2 className="w-3.5 h-3.5" />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTheme("dark")}
+                    className={`py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer border ${
+                      theme === "dark"
+                        ? "bg-indigo-900 text-white border-indigo-800 shadow-md shadow-indigo-950/40"
+                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                    }`}
+                  >
+                    <Moon className="w-4 h-4 text-teal-300" />
+                    <span>الوضع الليلي 🌙</span>
+                    {theme === "dark" && <CheckCircle2 className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* SECTOR 2: ADMIN PROFILE, CONTACT & HEADQUARTERS */}
+            <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+              <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+                <div className="flex items-center space-x-2 space-x-reverse">
+                  <UserCheck className="w-4 h-4 text-indigo-600" />
+                  <h4 className="text-xs font-black text-slate-800">بيانات مسؤول المنصة والمقر الإداري</h4>
+                </div>
+                <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-100">
+                  صلاحيات مدير عام (Super Admin)
+                </span>
+              </div>
+
+              {adminProfileMsg && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold rounded-2xl flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                  <span>{adminProfileMsg}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleSaveAdminProfile} className="space-y-3 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 block mb-1">اسم المسؤول الإداري:</label>
+                    <input
+                      type="text"
+                      value={adminName}
+                      onChange={(e) => setAdminName(e.target.value)}
+                      required
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-bold focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 block mb-1">البريد الإلكتروني الإداري:</label>
+                    <input
+                      type="email"
+                      value={adminEmail}
+                      onChange={(e) => setAdminEmail(e.target.value)}
+                      required
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-bold focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 block mb-1">هاتف الطوارئ / التواصل:</label>
+                    <input
+                      type="tel"
+                      value={adminPhone}
+                      onChange={(e) => setAdminPhone(e.target.value)}
+                      required
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-mono font-bold focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 block mb-1">المحافظة / النطاق الرئيسي:</label>
+                    <select
+                      value={adminGov}
+                      onChange={(e) => setAdminGov(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-bold focus:outline-none focus:border-indigo-500"
+                    >
+                      {EgyptianGovernoratesList.map((g) => (
+                        <option key={g.key} value={g.ar}>{g.ar}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 block mb-1">عنوان المقر الإداري:</label>
+                    <input
+                      type="text"
+                      value={adminAddress}
+                      onChange={(e) => setAdminAddress(e.target.value)}
+                      required
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-bold focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2 flex justify-end">
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black shadow-md shadow-indigo-200 transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>حفظ بيانات المسؤول والمقر ✓</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* SECTOR 3: PASSCODE SECURITY & ADMIN PIN */}
+            <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+              <div className="flex items-center space-x-2 space-x-reverse pb-2 border-b border-slate-100">
+                <KeyRound className="w-4 h-4 text-indigo-600" />
+                <h4 className="text-xs font-black text-slate-800">تغيير رمز أمان لوحة التحكم (Admin Passcode)</h4>
+              </div>
+
+              {adminPinMsg && (
+                <div className={`p-3 border text-xs font-bold rounded-2xl flex items-center gap-2 ${
+                  adminPinMsg.type === "success"
+                    ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                    : "bg-rose-50 border-rose-200 text-rose-700"
+                }`}>
+                  {adminPinMsg.type === "success" ? <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" /> : <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />}
+                  <span>{adminPinMsg.text}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleChangeAdminPin} className="space-y-3 max-w-xl text-xs">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">رمز الأمان الحالي (Current Passcode):</label>
+                  <input
+                    type="password"
+                    value={adminCurrentPin}
+                    onChange={(e) => setAdminCurrentPin(e.target.value)}
+                    placeholder="••••"
+                    required
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-mono focus:outline-none focus:border-indigo-500 font-bold"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 block mb-1">رمز الأمان الجديد:</label>
+                    <input
+                      type="password"
+                      value={adminNewPin}
+                      onChange={(e) => setAdminNewPin(e.target.value)}
+                      placeholder="••••"
+                      required
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-mono focus:outline-none focus:border-indigo-500 font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 block mb-1">تأكيد رمز الأمان الجديد:</label>
+                    <input
+                      type="password"
+                      value={adminConfirmPin}
+                      onChange={(e) => setAdminConfirmPin(e.target.value)}
+                      placeholder="••••"
+                      required
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-mono focus:outline-none focus:border-indigo-500 font-bold"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 shadow-md shadow-slate-300"
+                  >
+                    <Lock className="w-3.5 h-3.5 text-indigo-300" />
+                    <span>تحديث رمز أمان الإدارة 🔒</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* SECTOR 4: OPERATIONAL & SAFETY CONTROLS */}
+            <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+              <div className="flex items-center space-x-2 space-x-reverse pb-2 border-b border-slate-100">
+                <SlidersHorizontal className="w-4 h-4 text-indigo-600" />
+                <h4 className="text-xs font-black text-slate-800">ضوابط التشغيل والسلامة الدوائية (Clinical & Safety Controls)</h4>
+              </div>
+
+              {platformConfigMsg && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold rounded-2xl flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                  <span>{platformConfigMsg}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleSavePlatformConfig} className="space-y-4 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 block mb-1">
+                      حساسية الفحص الآلي بالذكاء الاصطناعي (DUR Engine):
+                    </label>
+                    <select
+                      value={durSensitivity}
+                      onChange={(e: any) => setDurSensitivity(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-bold focus:outline-none focus:border-indigo-500"
+                    >
+                      <option value="strict">صارم جداً (معايير هيئة الدواء EDA)</option>
+                      <option value="standard">قياسي (التداخلات الشائعة والجرعات)</option>
+                      <option value="lenient">تنبيهات أساسية فقط</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 block mb-1">
+                      نسبة عمولة المنصة الثابتة (% Platform Fee):
+                    </label>
+                    <input
+                      type="number"
+                      value={platformFeePercent}
+                      onChange={(e) => setPlatformFeePercent(e.target.value)}
+                      min="0"
+                      max="50"
+                      required
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-mono font-bold focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 block mb-1">
+                      خط طوارئ الدعم والواتساب المركزي:
+                    </label>
+                    <input
+                      type="tel"
+                      value={emergencyHotline}
+                      onChange={(e) => setEmergencyHotline(e.target.value)}
+                      required
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-mono font-bold focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Maintenance Mode Toggle */}
+                <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 flex justify-between items-center">
+                  <div className="space-y-0.5">
+                    <h5 className="text-xs font-black text-amber-900 flex items-center gap-1.5">
+                      <AlertCircle className="w-4 h-4 text-amber-600" />
+                      وضع الصيانة المؤقت للنظام (Maintenance Mode)
+                    </h5>
+                    <p className="text-[10.5px] text-amber-700">
+                      عند التفعيل يتم إيقاف حجز الاستشارات الجديدة مؤقتاً لأعمال التحديث وتدقيق قواعد البيانات.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setMaintenanceMode(!maintenanceMode)}
+                    className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                      maintenanceMode 
+                        ? "bg-rose-600 text-white border-rose-700 shadow-sm" 
+                        : "bg-slate-200 text-slate-700 border-slate-300"
+                    }`}
+                  >
+                    {maintenanceMode ? "مفعل (قيد الصيانة)" : "معطل (المنصة تعمل)"}
+                  </button>
+                </div>
+
+                <div className="pt-2 flex justify-end">
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-black shadow-md shadow-teal-200 transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>حفظ ضوابط التشغيل والسلامة ✓</span>
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}

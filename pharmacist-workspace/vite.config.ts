@@ -1,19 +1,20 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
 
-// Pharmacist Workspace Independent Vite Config
+// Pharmacist Workspace Vite Configuration with Tailwind CSS v4 & RTL Support
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, '..'),
+      '@': path.resolve(__dirname, 'src'),
       '@shared': path.resolve(__dirname, '../shared'),
       '@src': path.resolve(__dirname, '../src'),
     },
   },
   server: {
-    port: 3000,
+    port: 3003,
     host: '0.0.0.0',
     proxy: {
       '/api': {

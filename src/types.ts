@@ -317,15 +317,49 @@ export interface PharmacistReview {
   serviceType?: string; // e.g., 'OTC Consultation' | 'Prescription Audit' | 'Medication Plan'
 }
 
+export const EgyptianGovernoratesList: { key: string; ar: string; en: string; region: string }[] = [
+  { key: 'Cairo', ar: 'القاهرة', en: 'Cairo', region: 'Greater Cairo' },
+  { key: 'Giza', ar: 'الجيزة', en: 'Giza', region: 'Greater Cairo' },
+  { key: 'Qalyubia', ar: 'القليوبية', en: 'Qalyubia', region: 'Greater Cairo' },
+  { key: 'Alexandria', ar: 'الإسكندرية', en: 'Alexandria', region: 'Alexandria & Coast' },
+  { key: 'Matrouh', ar: 'مطروح', en: 'Matrouh', region: 'Alexandria & Coast' },
+  { key: 'Beheira', ar: 'البحيرة', en: 'Beheira', region: 'Delta' },
+  { key: 'Dakahlia', ar: 'الدقهلية', en: 'Dakahlia', region: 'Delta' },
+  { key: 'Gharbia', ar: 'الغربية', en: 'Gharbia', region: 'Delta' },
+  { key: 'Menofia', ar: 'المنوفية', en: 'Menofia', region: 'Delta' },
+  { key: 'Damietta', ar: 'دمياط', en: 'Damietta', region: 'Delta' },
+  { key: 'Kafr El Sheikh', ar: 'كفر الشيخ', en: 'Kafr El Sheikh', region: 'Delta' },
+  { key: 'Sharqia', ar: 'الشرقية', en: 'Sharqia', region: 'Canal & Sinai' },
+  { key: 'Port Said', ar: 'بورسعيد', en: 'Port Said', region: 'Canal & Sinai' },
+  { key: 'Ismailia', ar: 'الإسماعيلية', en: 'Ismailia', region: 'Canal & Sinai' },
+  { key: 'Suez', ar: 'السويس', en: 'Suez', region: 'Canal & Sinai' },
+  { key: 'North Sinai', ar: 'شمال سيناء', en: 'North Sinai', region: 'Canal & Sinai' },
+  { key: 'South Sinai', ar: 'جنوب سيناء', en: 'South Sinai', region: 'Canal & Sinai' },
+  { key: 'Red Sea', ar: 'البحر الأحمر', en: 'Red Sea', region: 'Canal & Sinai' },
+  { key: 'Fayoum', ar: 'الفيوم', en: 'Fayoum', region: 'Upper Egypt' },
+  { key: 'Beni Suef', ar: 'بني سويف', en: 'Beni Suef', region: 'Upper Egypt' },
+  { key: 'Minya', ar: 'المنيا', en: 'Minya', region: 'Upper Egypt' },
+  { key: 'Assiut', ar: 'أسيوط', en: 'Assiut', region: 'Upper Egypt' },
+  { key: 'Sohag', ar: 'سوهاج', en: 'Sohag', region: 'Upper Egypt' },
+  { key: 'Qena', ar: 'قنا', en: 'Qena', region: 'Upper Egypt' },
+  { key: 'Luxor', ar: 'الأقصر', en: 'Luxor', region: 'Upper Egypt' },
+  { key: 'Aswan', ar: 'أسوان', en: 'Aswan', region: 'Upper Egypt' },
+  { key: 'New Valley', ar: 'الوادي الجديد', en: 'New Valley', region: 'Upper Egypt' },
+];
+
 export interface PharmacistProfile {
   id?: string;
   fullName: string;
   licenseNumber: string; // e.g. LIC-12345
   specialty: ApprovedSpecialty;
+  specialties?: ApprovedSpecialty[]; // Can select up to 4 specialties
   degree: PharmacistDegree;
   country: string;
   governorate: string; // governorate of Egypt
   city: string;
+  addressDetails?: string;
+  phone?: string;
+  email?: string;
   photoUrl?: string;
   bio?: string;
   experienceYears?: number;
@@ -335,6 +369,15 @@ export interface PharmacistProfile {
   totalConsultations?: number;
   reviews?: PharmacistReview[];
   status?: 'online' | 'offline';
+}
+
+export interface PlatformSystemSettings {
+  maxPharmacistSpecialties: number; // default 4
+  enabledGovernorates: string[];
+  activeSpecialties: ApprovedSpecialty[];
+  adminPasscode: string;
+  durAutoAlertEnabled: boolean;
+  maintenanceMode: boolean;
 }
 
 // Admin Operational Dashboard Metrics

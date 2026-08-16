@@ -3,20 +3,21 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useMemo, Fragment, useRef } from "react";
+import React, { useState, useEffect, useMemo, Fragment, useRef } from "react";
 import { motion } from "motion/react";
 import { 
   Users, Search, Clock, Award, ShieldAlert, Sparkles, AlertTriangle, 
   CheckSquare, FileCheck, RotateCw, ZoomIn, ZoomOut, RotateCcw, 
   Play, CheckCircle2, RefreshCw, Eye, BookOpen, UserCheck, Stethoscope, ChevronLeft,
   Bell, Calendar, Phone, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare,
-  DollarSign, TrendingUp, MapPin, Sliders, CalendarDays, Activity, Gauge, Zap, Camera
+  DollarSign, TrendingUp, MapPin, Sliders, CalendarDays, Activity, Gauge, Zap, Camera,
+  Settings, Moon, Sun, Globe, KeyRound, AlertCircle
 } from "lucide-react";
 import { 
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, 
   CartesianGrid, Tooltip, Legend, BarChart, Bar
 } from "recharts";
-import { OtcConsultation, PrescriptionRevision, PatientProfile, ClinicalReport, ApprovedSpecialty, AppNotification, ApprovedSpecialtiesList, PharmacistProfile, PharmacistDegree, MedicationManagementPlan } from "../types";
+import { OtcConsultation, PrescriptionRevision, PatientProfile, ClinicalReport, ApprovedSpecialty, AppNotification, ApprovedSpecialtiesList, PharmacistProfile, PharmacistDegree, MedicationManagementPlan, EgyptianGovernoratesList } from "../types";
 import AuthInterface from "./AuthInterface";
 import { Fingerprint, Lock, LogOut, ShieldCheck } from "lucide-react";
 import MedicationInteractionsChart from "./MedicationInteractionsChart";
@@ -25,6 +26,7 @@ import PrescriptionAuditProgressBar, { PrescriptionAuditStage } from "./Prescrip
 import { ProfilePhotoUploader } from "./ProfilePhotoUploader";
 import { registerPushNotifications, triggerLocalNativeNotification } from "../lib/pushNotifications";
 import { useLanguage, LanguageSwitcher } from "../LanguageContext";
+import { useTheme } from "../ThemeContext";
 
 interface PharmacistWorkspaceProps {
   onReportIssued: () => void;
@@ -41,7 +43,8 @@ export default function PharmacistWorkspace({
   onAuthSuccess,
   onLogout
 }: PharmacistWorkspaceProps) {
-  const { t, language, isRtl, dir } = useLanguage();
+  const { t, language, setLanguage, isRtl, dir } = useLanguage();
+  const { theme, setTheme, toggleTheme, isDark } = useTheme();
 
   // Store queues
   const [otcCases, setOtcCases] = useState<OtcConsultation[]>([]);
@@ -49,7 +52,65 @@ export default function PharmacistWorkspace({
   const [mmpCases, setMmpCases] = useState<MedicationManagementPlan[]>([]);
   const [activeTab, setActiveTab] = useState<'OTC' | 'REV' | 'MMP'>('OTC');
   const [caseStatusFilter, setCaseStatusFilter] = useState<'waiting' | 'previous'>('waiting');
-  const [sidebarNav, setSidebarNav] = useState<'cases' | 'profile' | 'finance'>('cases');
+  const [sidebarNav, setSidebarNav] = useState<'cases' | 'profile' | 'finance' | 'performance' | 'settings'>('cases');
+
+  // Pharmacist Settings Form States
+  const [pharmacistPhone, setPharmacistPhone] = useState(currentUser?.phone || "01099887766");
+  const [pharmacistEmail, setPharmacistEmail] = useState(currentUser?.email || "dr.pharmacist@infodoctors.eg");
+  const [pharmacistAddress, setPharmacistAddress] = useState("شارع التسعين الشمالي - مجمع العيادات التخصصية");
+  const [pharmacistGov, setPharmacistGov] = useState("القاهرة");
+  const [pharmacistSelectedSpecialties, setPharmacistSelectedSpecialties] = useState<ApprovedSpecialty[]>(["OB-GYN", "Internal-Medicine"]);
+  const [pharmacistProfileSavedMsg, setPharmacistProfileSavedMsg] = useState("");
+
+  // Pharmacist Password Change
+  const [pharmacistCurrPwd, setPharmacistCurrPwd] = useState("");
+  const [pharmacistNewPwd, setPharmacistNewPwd] = useState("");
+  const [pharmacistConfirmPwd, setPharmacistConfirmPwd] = useState("");
+  const [pharmacistPwdMsg, setPharmacistPwdMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const toggleSpecialtySelection = (specKey: ApprovedSpecialty) => {
+    if (pharmacistSelectedSpecialties.includes(specKey)) {
+      if (pharmacistSelectedSpecialties.length === 1) {
+        alert(isRtl ? "يجب اختيار تخصص سريري واحد على الأقل!" : "You must select at least one specialty!");
+        return;
+      }
+      setPharmacistSelectedSpecialties(pharmacistSelectedSpecialties.filter(s => s !== specKey));
+    } else {
+      if (pharmacistSelectedSpecialties.length >= 4) {
+        alert(isRtl ? "الحد الأقصى للتخصصات المسموح بها للصيدلي هو 4 تخصصات فقط طبقاً للوائح الإدارة!" : "Maximum limit is 4 specialties per pharmacist according to platform rules!");
+        return;
+      }
+      setPharmacistSelectedSpecialties([...pharmacistSelectedSpecialties, specKey]);
+    }
+  };
+
+  const handleSavePharmacistContact = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPharmacistProfileSavedMsg(t('settings.personal_success', 'تم حفظ وتحديث بيانات التواصل والتخصصات بنجاح!'));
+    setTimeout(() => setPharmacistProfileSavedMsg(""), 3500);
+  };
+
+  const handlePharmacistChangePassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pharmacistCurrPwd) {
+      setPharmacistPwdMsg({ type: 'error', text: isRtl ? 'يرجى إدخال كلمة المرور الحالية' : 'Please enter current password' });
+      return;
+    }
+    if (pharmacistNewPwd.length < 6) {
+      setPharmacistPwdMsg({ type: 'error', text: isRtl ? 'كلمة المرور الجديدة يجب ألا تقل عن 6 أحرف' : 'New password must be at least 6 characters' });
+      return;
+    }
+    if (pharmacistNewPwd !== pharmacistConfirmPwd) {
+      setPharmacistPwdMsg({ type: 'error', text: isRtl ? 'كلمتا المرور غير متطابقتين' : 'Passwords do not match' });
+      return;
+    }
+
+    setPharmacistPwdMsg({ type: 'success', text: t('settings.password_success', 'تم تحديث كلمة المرور وحفظ الجلسة الآمنة بنجاح!') });
+    setPharmacistCurrPwd("");
+    setPharmacistNewPwd("");
+    setPharmacistConfirmPwd("");
+    setTimeout(() => setPharmacistPwdMsg(null), 4000);
+  };
   
   // App Notifications states
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -1612,21 +1673,35 @@ export default function PharmacistWorkspace({
                <span className="hidden md:inline">{t('pharmacist.tab_profile', 'الملف المهني')}</span>
              </button>
 
-             {/* 4. العمولات والأرباح */}
-             <button
-               type="button"
-               onClick={() => setSidebarNav('finance')}
-               className={`w-full flex items-center space-x-2 space-x-reverse px-3 py-2.5 rounded-xl font-extrabold text-xs transition-all cursor-pointer ${
-                 sidebarNav === 'finance'
-                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-950/40'
-                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-               }`}
-             >
-               <DollarSign className="w-4 h-4 shrink-0 text-indigo-300" />
-               <span className="hidden md:inline">{t('pharmacist.tab_finance', 'العمولات والأرباح')}</span>
-             </button>
-           </div>
-         </div>
+              {/* 4. العمولات والأرباح */}
+              <button
+                type="button"
+                onClick={() => setSidebarNav('finance')}
+                className={`w-full flex items-center space-x-2 space-x-reverse px-3 py-2.5 rounded-xl font-extrabold text-xs transition-all cursor-pointer ${
+                  sidebarNav === 'finance'
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-950/40'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
+              >
+                <DollarSign className="w-4 h-4 shrink-0 text-indigo-300" />
+                <span className="hidden md:inline">{t('pharmacist.tab_finance', 'العمولات والأرباح')}</span>
+              </button>
+
+              {/* 5. الإعدادات */}
+              <button
+                type="button"
+                onClick={() => setSidebarNav('settings')}
+                className={`w-full flex items-center space-x-2 space-x-reverse px-3 py-2.5 rounded-xl font-extrabold text-xs transition-all cursor-pointer ${
+                  sidebarNav === 'settings'
+                    ? 'bg-teal-600 text-white shadow-md shadow-teal-950/40'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
+              >
+                <Settings className="w-4 h-4 shrink-0 text-teal-300" />
+                <span className="hidden md:inline">{t('settings.tab', 'الإعدادات')}</span>
+              </button>
+            </div>
+          </div>
 
          {/* SIDE BAR: Cases Queue List */}
          {sidebarNav === 'cases' && (
@@ -3345,6 +3420,317 @@ export default function PharmacistWorkspace({
               </div>
             </div>
           )}
+
+          {/* ============================================================ */}
+          {/* TAB 5: PHARMACIST SETTINGS (الإعدادات الشاملة) */}
+          {/* ============================================================ */}
+          {sidebarNav === "settings" && (
+            <div className="flex-1 bg-slate-950/80 rounded-2xl p-6 border border-slate-800 space-y-6 overflow-y-auto max-w-5xl mx-auto text-right">
+              {/* Header Banner */}
+              <div className="bg-gradient-to-r from-teal-900/80 via-slate-900 to-indigo-950/60 p-5 rounded-3xl border border-teal-500/30 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-xl">
+                <div className="flex items-center space-x-3.5 space-x-reverse">
+                  <div className="w-12 h-12 rounded-2xl bg-teal-500/20 border border-teal-500/30 flex items-center justify-center text-teal-300 shadow-inner">
+                    <Settings className="w-6 h-6 animate-spin-slow" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-black text-white flex items-center gap-2">
+                      <span>إعدادات مكتب الدكتور الصيدلي</span>
+                      <span className="text-[10px] bg-teal-500/20 text-teal-300 px-2 py-0.5 rounded-full border border-teal-500/40 font-mono font-bold">Workspace Settings</span>
+                    </h2>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      تخصيص الواجهة واللغة، وتعديل بيانات التواصل والعنوان، وإدارة التخصصات السريرية المعتمدة (حتى 4 تخصصات)، وتغيير كلمة السر.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-bold text-slate-400">
+                    رقم الترخيص: <span className="text-teal-400 font-mono">{currentUser?.licenseNumber || "EG-PH-88912"}</span>
+                  </span>
+                </div>
+              </div>
+
+              {/* 1. SECTOR: LANGUAGE & THEME PREFERENCES */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Language Selection */}
+                <div className="bg-slate-900/70 p-5 rounded-2xl border border-slate-800 space-y-3">
+                  <div className="flex items-center space-x-2 space-x-reverse pb-2 border-b border-slate-800">
+                    <Globe className="w-4 h-4 text-teal-400" />
+                    <h3 className="text-xs font-black text-white">اختيار اللغة (Language)</h3>
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    حدد لغة عرض الواجهة والتقارير الطبية والمصطلحات الدوائية:
+                  </p>
+                  <div className="grid grid-cols-2 gap-2.5 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setLanguage("ar")}
+                      className={`py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer border ${
+                        language === "ar"
+                          ? "bg-teal-600 text-white border-teal-500 shadow-md shadow-teal-950/40"
+                          : "bg-slate-950 text-slate-300 border-slate-800 hover:bg-slate-800"
+                      }`}
+                    >
+                      <span>🇪🇬 العربية (AR)</span>
+                      {language === "ar" && <CheckCircle2 className="w-3.5 h-3.5" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLanguage("en")}
+                      className={`py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer border ${
+                        language === "en"
+                          ? "bg-teal-600 text-white border-teal-500 shadow-md shadow-teal-950/40"
+                          : "bg-slate-950 text-slate-300 border-slate-800 hover:bg-slate-800"
+                      }`}
+                    >
+                      <span>🇬🇧 English (EN)</span>
+                      {language === "en" && <CheckCircle2 className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Theme Mode (Light / Dark) */}
+                <div className="bg-slate-900/70 p-5 rounded-2xl border border-slate-800 space-y-3">
+                  <div className="flex items-center space-x-2 space-x-reverse pb-2 border-b border-slate-800">
+                    <Sun className="w-4 h-4 text-amber-400" />
+                    <h3 className="text-xs font-black text-white">اختيار الوضع (نهاري / ليلي)</h3>
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    تبديل نمط الإضاءة للراحة البصرية أثناء مراجعة الروشتات والتحاليل:
+                  </p>
+                  <div className="grid grid-cols-2 gap-2.5 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setTheme("light")}
+                      className={`py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer border ${
+                        theme === "light"
+                          ? "bg-amber-500 text-slate-950 border-amber-400 font-black shadow-md shadow-amber-950/40"
+                          : "bg-slate-950 text-slate-300 border-slate-800 hover:bg-slate-800"
+                      }`}
+                    >
+                      <Sun className="w-4 h-4 text-amber-500" />
+                      <span>الوضع النهاري ☀️</span>
+                      {theme === "light" && <CheckCircle2 className="w-3.5 h-3.5" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTheme("dark")}
+                      className={`py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer border ${
+                        theme === "dark"
+                          ? "bg-teal-600 text-white border-teal-500 shadow-md shadow-teal-950/40"
+                          : "bg-slate-950 text-slate-300 border-slate-800 hover:bg-slate-800"
+                      }`}
+                    >
+                      <Moon className="w-4 h-4 text-teal-300" />
+                      <span>الوضع الليلي 🌙</span>
+                      {theme === "dark" && <CheckCircle2 className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. SECTOR: EDIT PROFILE, CONTACT & LOCATION & SPECIALTIES */}
+              <div className="bg-slate-900/70 p-5 rounded-2xl border border-slate-800 space-y-4">
+                <div className="flex justify-between items-center pb-2 border-b border-slate-800">
+                  <div className="flex items-center space-x-2 space-x-reverse">
+                    <UserCheck className="w-4 h-4 text-teal-400" />
+                    <h3 className="text-xs font-black text-white">تعديل بيانات التواصل، العنوان والتخصصات السريرية</h3>
+                  </div>
+                  <span className="text-[10px] font-bold text-teal-400 bg-teal-500/10 px-2.5 py-0.5 rounded-full border border-teal-500/30">
+                    تحديد حتى 4 تخصصات (المحدد: {pharmacistSelectedSpecialties.length}/4)
+                  </span>
+                </div>
+
+                {pharmacistProfileSavedMsg && (
+                  <div className="p-3 bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-xs font-bold rounded-xl flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span>{pharmacistProfileSavedMsg}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleSavePharmacistContact} className="space-y-4">
+                  {/* Phone and Email */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-300 block">
+                        رقم هاتف التواصل والواتساب:
+                      </label>
+                      <input
+                        type="tel"
+                        value={pharmacistPhone}
+                        onChange={(e) => setPharmacistPhone(e.target.value)}
+                        required
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-teal-500 font-bold"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-300 block">
+                        البريد الإلكتروني المهني:
+                      </label>
+                      <input
+                        type="email"
+                        value={pharmacistEmail}
+                        onChange={(e) => setPharmacistEmail(e.target.value)}
+                        required
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-teal-500 font-bold"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Governorate and Address */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-300 block">
+                        النطاق الجغرافي / المحافظة:
+                      </label>
+                      <select
+                        value={pharmacistGov}
+                        onChange={(e) => setPharmacistGov(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-teal-500 font-bold"
+                      >
+                        {EgyptianGovernoratesList.map((gov) => (
+                          <option key={gov} value={gov}>{gov}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="sm:col-span-2 space-y-1">
+                      <label className="text-[11px] font-bold text-slate-300 block">
+                        عنوان العيادة / الصيدلية / مقر الاستشارات:
+                      </label>
+                      <input
+                        type="text"
+                        value={pharmacistAddress}
+                        onChange={(e) => setPharmacistAddress(e.target.value)}
+                        required
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-teal-500 font-bold"
+                      />
+                    </div>
+                  </div>
+
+                  {/* SPECIALTIES MULTI-SELECTION (UP TO 4 SPECIALTIES) */}
+                  <div className="space-y-2 pt-2 border-t border-slate-800">
+                    <div className="flex justify-between items-center">
+                      <label className="text-[11px] font-bold text-slate-300 block">
+                        اختر التخصصات الطبية والصيدلانية المعتمدة (الحد الأقصى 4 تخصصات):
+                      </label>
+                      <span className="text-[10px] text-slate-400">
+                        {pharmacistSelectedSpecialties.length} من 4 محدد
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {ApprovedSpecialtiesList.map((spec) => {
+                        const isSelected = pharmacistSelectedSpecialties.includes(spec.key);
+                        return (
+                          <button
+                            key={spec.key}
+                            type="button"
+                            onClick={() => toggleSpecialtySelection(spec.key)}
+                            className={`p-2.5 rounded-xl text-[11px] font-bold border transition-all text-right flex items-center justify-between cursor-pointer ${
+                              isSelected
+                                ? "bg-teal-500/20 border-teal-500 text-teal-300 shadow-sm"
+                                : "bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+                            }`}
+                          >
+                            <span className="truncate">{spec.ar}</span>
+                            {isSelected ? (
+                              <CheckCircle2 className="w-3.5 h-3.5 text-teal-400 shrink-0 mr-1" />
+                            ) : (
+                              <div className="w-3 h-3 rounded-full border border-slate-700 shrink-0 mr-1" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="pt-2 flex justify-end">
+                    <button
+                      type="submit"
+                      className="px-6 py-2.5 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-xs font-black shadow-md shadow-teal-950/40 transition-all cursor-pointer flex items-center gap-2"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>حفظ بيانات التواصل والتخصصات ✓</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* 3. SECTOR: CHANGE PASSWORD */}
+              <div className="bg-slate-900/70 p-5 rounded-2xl border border-slate-800 space-y-4">
+                <div className="flex items-center space-x-2 space-x-reverse pb-2 border-b border-slate-800">
+                  <KeyRound className="w-4 h-4 text-teal-400" />
+                  <h3 className="text-xs font-black text-white">تعديل كلمة السر وحماية الحساب</h3>
+                </div>
+
+                {pharmacistPwdMsg && (
+                  <div className={`p-3 border text-xs font-bold rounded-xl flex items-center gap-2 ${
+                    pharmacistPwdMsg.type === "success"
+                      ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-400"
+                      : "bg-rose-500/20 border-rose-500/40 text-rose-400"
+                  }`}>
+                    {pharmacistPwdMsg.type === "success" ? (
+                      <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                    )}
+                    <span>{pharmacistPwdMsg.text}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handlePharmacistChangePassword} className="space-y-3 max-w-xl text-xs">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-300 block">كلمة المرور الحالية:</label>
+                    <input
+                      type="password"
+                      value={pharmacistCurrPwd}
+                      onChange={(e) => setPharmacistCurrPwd(e.target.value)}
+                      placeholder="••••••••"
+                      required
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-teal-500"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-300 block">كلمة المرور الجديدة:</label>
+                      <input
+                        type="password"
+                        value={pharmacistNewPwd}
+                        onChange={(e) => setPharmacistNewPwd(e.target.value)}
+                        placeholder="••••••••"
+                        required
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-teal-500"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-300 block">تأكيد كلمة المرور الجديدة:</label>
+                      <input
+                        type="password"
+                        value={pharmacistConfirmPwd}
+                        onChange={(e) => setPharmacistConfirmPwd(e.target.value)}
+                        placeholder="••••••••"
+                        required
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-teal-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-black border border-slate-700 transition-all cursor-pointer flex items-center gap-2"
+                    >
+                      <Lock className="w-3.5 h-3.5 text-teal-400" />
+                      <span>تحديث كلمة المرور 🔒</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
       </div>
 
           {/* FCM & PUSH NOTIFICATIONS CONFIGURATION MODAL */}

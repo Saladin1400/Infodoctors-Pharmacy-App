@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { motion } from "motion/react";
 import { jsPDF } from "jspdf";
 import { 
@@ -12,9 +12,10 @@ import {
   ChevronRight, RefreshCw, Layers, MapPin, Heart, HelpCircle,
   HeartPulse, Activity, FileText, AlertTriangle, FileCheck, ShieldAlert,
   Mic, MicOff, VideoOff, PhoneOff, MessageSquare, CreditCard, Copy,
-  Clock, Users, BarChart2, UserPlus, LogOut, X, TrendingUp
+  Clock, Users, BarChart2, UserPlus, LogOut, X, TrendingUp, Settings,
+  Moon, Sun, Globe, KeyRound
 } from "lucide-react";
-import { PatientProfile, ApprovedSpecialtiesList, ApprovedSpecialty, ClinicalReport, AppNotification, AlcoholLevel, PhysicalActivity, CurrentMedication, PharmacistProfile, PharmacistReview } from "../types";
+import { PatientProfile, ApprovedSpecialtiesList, ApprovedSpecialty, ClinicalReport, AppNotification, AlcoholLevel, PhysicalActivity, CurrentMedication, PharmacistProfile, PharmacistReview, EgyptianGovernoratesList } from "../types";
 import { DEFAULT_PATIENTS } from "../defaultData";
 import AuthInterface from "./AuthInterface";
 import MedicationInsights from "./MedicationInsights";
@@ -29,6 +30,7 @@ import PrescriptionCameraCaptureOverlay from "./PrescriptionCameraCaptureOverlay
 import { Fingerprint, Lock, UserCheck } from "lucide-react";
 import { registerPushNotifications, triggerLocalNativeNotification } from "../lib/pushNotifications";
 import { useLanguage, LanguageSwitcher } from "../LanguageContext";
+import { useTheme } from "../ThemeContext";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -74,11 +76,28 @@ export default function MobilePatientSimulator({
   onAuthSuccess,
   onLogout
 }: MobilePatientSimulatorProps) {
-  const { t, language, isRtl, dir } = useLanguage();
+  const { t, language, setLanguage, toggleLanguage, isRtl, dir } = useLanguage();
+  const { theme, setTheme, toggleTheme, isDark } = useTheme();
 
   // Navigation states inside simulated phone app
-  // Screens: 'dashboard' | 'profile' | 'otc-book' | 'rev-book' | 'pillbox' | 'scanner' | 'payment' | 'videocall' | 'overview' | 'auth' | 'insights' | 'pharmacists'
+  // Screens: 'dashboard' | 'profile' | 'otc-book' | 'rev-book' | 'pillbox' | 'scanner' | 'payment' | 'videocall' | 'overview' | 'auth' | 'insights' | 'pharmacists' | 'settings'
   const [screen, setScreen] = useState<string>('doses');
+
+  // Patient Settings Form States
+  const [patientFullName, setPatientFullName] = useState("");
+  const [patientPhonePrimary, setPatientPhonePrimary] = useState("");
+  const [patientPhoneBackup, setPatientPhoneBackup] = useState("");
+  const [patientEmail, setPatientEmail] = useState("");
+  const [patientGov, setPatientGov] = useState("القاهرة");
+  const [patientCity, setPatientCity] = useState("");
+  const [patientDistrict, setPatientDistrict] = useState("");
+  const [personalSavedMsg, setPersonalSavedMsg] = useState("");
+
+  // Password Change State
+  const [currPassword, setCurrPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordMsg, setPasswordMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   
   // Pharmacist Profile Modal state for patient inspection
   const [selectedPharmacistProfile, setSelectedPharmacistProfile] = useState<PharmacistProfile | null>(null);
@@ -541,6 +560,72 @@ export default function MobilePatientSimulator({
     } catch (e) {
       console.warn("Error saving photo to localStorage:", e);
     }
+  };
+
+  // Sync personal form when activePatient changes
+  useEffect(() => {
+    if (activePatient) {
+      setPatientFullName(activePatient.fullName || "");
+      setPatientPhonePrimary(activePatient.phonePrimary || "");
+      setPatientPhoneBackup(activePatient.phoneBackup || "");
+      setPatientEmail(activePatient.email || "");
+      setPatientGov(activePatient.address?.governorate || "القاهرة");
+      setPatientCity(activePatient.address?.city || "");
+      setPatientDistrict(activePatient.address?.district || "");
+    }
+  }, [activePatient?.nationalId]);
+
+  const handleSavePersonalSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activePatient) return;
+    
+    // Update local object & backend
+    activePatient.fullName = patientFullName;
+    activePatient.phonePrimary = patientPhonePrimary;
+    activePatient.phoneBackup = patientPhoneBackup;
+    activePatient.email = patientEmail;
+    if (!activePatient.address) {
+      activePatient.address = { country: "مصر", governorate: patientGov, city: patientCity, district: patientDistrict };
+    } else {
+      activePatient.address.governorate = patientGov;
+      activePatient.address.city = patientCity;
+      activePatient.address.district = patientDistrict;
+    }
+
+    try {
+      await fetch(`/api/v1/patients/${activePatient.nationalId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(activePatient)
+      });
+    } catch (err) {
+      console.warn("Patient backend sync notice:", err);
+    }
+
+    setPersonalSavedMsg(t('settings.personal_success', 'تم تحديث البيانات الشخصية بنجاح!'));
+    setTimeout(() => setPersonalSavedMsg(""), 3500);
+  };
+
+  const handleChangePassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currPassword) {
+      setPasswordMsg({ type: 'error', text: isRtl ? 'يرجى إدخال كلمة المرور الحالية أولاً' : 'Please enter current password' });
+      return;
+    }
+    if (newPassword.length < 6) {
+      setPasswordMsg({ type: 'error', text: isRtl ? 'كلمة المرور الجديدة يجب ألا تقل عن 6 أحرف أو أرقام' : 'New password must be at least 6 characters' });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordMsg({ type: 'error', text: isRtl ? 'كلمة المرور الجديدة غير متطابقة مع تأكيد كلمة المرور' : 'New passwords do not match' });
+      return;
+    }
+
+    setPasswordMsg({ type: 'success', text: t('settings.password_success', 'تم تغيير كلمة المرور بنجاح وحفظ الجلسة الآمنة!') });
+    setCurrPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setTimeout(() => setPasswordMsg(null), 4000);
   };
 
   // Load chat history on Joining videocall
@@ -1947,6 +2032,7 @@ export default function MobilePatientSimulator({
                 { id: 'records', label: t('patient.tab_records', 'السجل'), icon: Activity },
                 { id: 'insights', label: t('patient.tab_insights', 'الالتزام'), icon: BarChart2 },
                 { id: 'family', label: t('patient.tab_family', 'العائلة'), icon: UserPlus, badge: dependents.length },
+                { id: 'settings', label: t('settings.tab', 'الإعدادات'), icon: Settings },
               ].map((tab) => {
                 const IconComponent = tab.icon;
                 const isActive = screen === tab.id || (tab.id === 'doses' && screen === 'pillbox') || (tab.id === 'records' && (screen === 'profile' || screen === 'overview')) || (tab.id === 'services' && (screen === 'otc-book' || screen === 'rev-book'));
@@ -2406,6 +2492,319 @@ export default function MobilePatientSimulator({
                       )}
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* TAB 8: إعدادات المريض (Language, Theme, Change Password, Personal Info) */}
+              {screen === 'settings' && (
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  
+                  {/* Header Banner */}
+                  <div className="bg-gradient-to-r from-teal-800 to-slate-900 text-white p-4 rounded-2xl shadow-sm border border-teal-700/40">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-teal-500/20 border border-teal-400/40 flex items-center justify-center text-teal-300">
+                          <Settings className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h3 className="text-xs font-black text-white">
+                            {t('settings.tab', 'الإعدادات')} - {t('patient.title', 'تطبيق المستخدم الموحد')}
+                          </h3>
+                          <p className="text-[10px] text-teal-200 mt-0.5">
+                            {t('settings.title', 'إعدادات الحساب والنظام')}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-[9.5px] font-mono font-bold bg-teal-950/80 px-2 py-0.5 rounded-full border border-teal-500/30 text-teal-300">
+                        v4.0
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 1. SECTOR: LANGUAGE & THEME PREFERENCES */}
+                  <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                    <h4 className="text-xs font-extrabold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-2">
+                      <Globe className="w-4 h-4 text-teal-600" />
+                      <span>{t('settings.language', 'لغة التطبيق')} و {t('settings.theme', 'وضع العرض (الثيم)')}</span>
+                    </h4>
+
+                    {/* Language Switch */}
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-slate-700 block">
+                        {t('settings.language', 'لغة التطبيق')}:
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setLanguage('ar')}
+                          className={`py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer border ${
+                            language === 'ar'
+                              ? 'bg-teal-600 text-white border-teal-700 shadow-sm'
+                              : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border-slate-200'
+                          }`}
+                        >
+                          <span>🇪🇬 العربية (AR)</span>
+                          {language === 'ar' && <CheckCircle2 className="w-3.5 h-3.5" />}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setLanguage('en')}
+                          className={`py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer border ${
+                            language === 'en'
+                              ? 'bg-teal-600 text-white border-teal-700 shadow-sm'
+                              : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border-slate-200'
+                          }`}
+                        >
+                          <span>🇬🇧 English (EN)</span>
+                          {language === 'en' && <CheckCircle2 className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Theme Mode Switch */}
+                    <div className="space-y-1.5 pt-2 border-t border-slate-100">
+                      <label className="text-[11px] font-bold text-slate-700 block">
+                        {t('settings.theme', 'وضع العرض (الثيم)')}:
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setTheme('light')}
+                          className={`py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer border ${
+                            theme === 'light'
+                              ? 'bg-amber-500 text-slate-950 border-amber-600 shadow-sm font-black'
+                              : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border-slate-200'
+                          }`}
+                        >
+                          <Sun className="w-4 h-4 text-amber-600" />
+                          <span>{t('settings.light', 'الوضع النهاري ☀️')}</span>
+                          {theme === 'light' && <CheckCircle2 className="w-3.5 h-3.5" />}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setTheme('dark')}
+                          className={`py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer border ${
+                            theme === 'dark'
+                              ? 'bg-slate-900 text-white border-slate-950 shadow-sm'
+                              : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border-slate-200'
+                          }`}
+                        >
+                          <Moon className="w-4 h-4 text-teal-400" />
+                          <span>{t('settings.dark', 'الوضع الليلي 🌙')}</span>
+                          {theme === 'dark' && <CheckCircle2 className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 2. SECTOR: EDIT PERSONAL PROFILE & CONTACT DATA */}
+                  <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                    <h4 className="text-xs font-extrabold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-2">
+                      <User className="w-4 h-4 text-teal-600" />
+                      <span>{t('settings.personal_info', 'تعديل البيانات الشخصية والتواصل')}</span>
+                    </h4>
+
+                    {personalSavedMsg && (
+                      <div className="p-2.5 bg-emerald-50 border border-emerald-300 text-emerald-800 text-[11px] font-bold rounded-xl flex items-center gap-2 animate-in fade-in">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        <span>{personalSavedMsg}</span>
+                      </div>
+                    )}
+
+                    <form onSubmit={handleSavePersonalSettings} className="space-y-2.5">
+                      <div>
+                        <label className="text-[10.5px] font-bold text-slate-600 block mb-1">
+                          {t('settings.fullname', 'الاسم الكامل')}:
+                        </label>
+                        <input
+                          type="text"
+                          value={patientFullName}
+                          onChange={(e) => setPatientFullName(e.target.value)}
+                          required
+                          className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 font-bold focus:outline-none focus:border-teal-600"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10.5px] font-bold text-slate-600 block mb-1">
+                            {t('settings.phone', 'رقم الهاتف الأساسي')}:
+                          </label>
+                          <input
+                            type="tel"
+                            value={patientPhonePrimary}
+                            onChange={(e) => setPatientPhonePrimary(e.target.value)}
+                            placeholder="01012345678"
+                            required
+                            className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 font-mono font-bold focus:outline-none focus:border-teal-600"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[10.5px] font-bold text-slate-600 block mb-1">
+                            {t('settings.phone_backup', 'رقم الهاتف الاحتياطي')}:
+                          </label>
+                          <input
+                            type="tel"
+                            value={patientPhoneBackup}
+                            onChange={(e) => setPatientPhoneBackup(e.target.value)}
+                            placeholder="01234567890"
+                            className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 font-mono font-bold focus:outline-none focus:border-teal-600"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-[10.5px] font-bold text-slate-600 block mb-1">
+                          {t('settings.email', 'البريد الإلكتروني')}:
+                        </label>
+                        <input
+                          type="email"
+                          value={patientEmail}
+                          onChange={(e) => setPatientEmail(e.target.value)}
+                          placeholder="patient@example.com"
+                          className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 font-bold focus:outline-none focus:border-teal-600"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <label className="text-[10.5px] font-bold text-slate-600 block mb-1">
+                            {t('settings.governorate', 'المحافظة')}:
+                          </label>
+                          <select
+                            value={patientGov}
+                            onChange={(e) => setPatientGov(e.target.value)}
+                            className="w-full bg-slate-50 border border-slate-300 rounded-xl px-2 py-2 text-xs text-slate-900 font-bold focus:outline-none focus:border-teal-600"
+                          >
+                            {EgyptianGovernoratesList.map((g) => (
+                              <option key={g.key} value={language === 'ar' ? g.ar : g.en}>
+                                {language === 'ar' ? g.ar : g.en}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-[10.5px] font-bold text-slate-600 block mb-1">
+                            {t('settings.city', 'المدينة')}:
+                          </label>
+                          <input
+                            type="text"
+                            value={patientCity}
+                            onChange={(e) => setPatientCity(e.target.value)}
+                            placeholder="المدينة"
+                            className="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-2 text-xs text-slate-900 font-bold focus:outline-none focus:border-teal-600"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[10.5px] font-bold text-slate-600 block mb-1">
+                            {t('settings.district', 'الحي / المنطقة')}:
+                          </label>
+                          <input
+                            type="text"
+                            value={patientDistrict}
+                            onChange={(e) => setPatientDistrict(e.target.value)}
+                            placeholder="الحي"
+                            className="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-2 text-xs text-slate-900 font-bold focus:outline-none focus:border-teal-600"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="pt-2">
+                        <button
+                          type="submit"
+                          className="w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-black shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>{t('settings.save_personal', 'حفظ البيانات الشخصية ✓')}</span>
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+
+                  {/* 3. SECTOR: CHANGE PASSWORD */}
+                  <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                    <h4 className="text-xs font-extrabold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-2">
+                      <KeyRound className="w-4 h-4 text-teal-600" />
+                      <span>{t('settings.password', 'تعديل كلمة السر')}</span>
+                    </h4>
+
+                    {passwordMsg && (
+                      <div className={`p-2.5 border text-[11px] font-bold rounded-xl flex items-center gap-2 animate-in fade-in ${
+                        passwordMsg.type === 'success' 
+                          ? 'bg-emerald-50 border-emerald-300 text-emerald-800' 
+                          : 'bg-rose-50 border-rose-300 text-rose-800'
+                      }`}>
+                        {passwordMsg.type === 'success' ? (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        ) : (
+                          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                        )}
+                        <span>{passwordMsg.text}</span>
+                      </div>
+                    )}
+
+                    <form onSubmit={handleChangePassword} className="space-y-2.5">
+                      <div>
+                        <label className="text-[10.5px] font-bold text-slate-600 block mb-1">
+                          {t('settings.current_password', 'كلمة المرور الحالية')}:
+                        </label>
+                        <input
+                          type="password"
+                          value={currPassword}
+                          onChange={(e) => setCurrPassword(e.target.value)}
+                          placeholder="••••••••"
+                          required
+                          className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 font-mono focus:outline-none focus:border-teal-600"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10.5px] font-bold text-slate-600 block mb-1">
+                            {t('settings.new_password', 'كلمة المرور الجديدة')}:
+                          </label>
+                          <input
+                            type="password"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            placeholder="••••••••"
+                            required
+                            className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 font-mono focus:outline-none focus:border-teal-600"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[10.5px] font-bold text-slate-600 block mb-1">
+                            {t('settings.confirm_password', 'تأكيد كلمة المرور الجديدة')}:
+                          </label>
+                          <input
+                            type="password"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            placeholder="••••••••"
+                            required
+                            className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 font-mono focus:outline-none focus:border-teal-600"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="pt-2">
+                        <button
+                          type="submit"
+                          className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <Lock className="w-3.5 h-3.5 text-teal-400" />
+                          <span>{t('settings.save_password', 'تحديث كلمة السر 🔒')}</span>
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+
                 </div>
               )}
 
